@@ -1,0 +1,18 @@
+# Entorno virtual
+.venv/
+
+# Bytecode
+__pycache__/
+*.py[cod]
+
+# Variables de entorno: nunca versionar credenciales
+.env
+.env.*
+# .env.demo es la plantilla con placeholders: esa si se versiona
+!.env.demo
+
+# Pytest
+.pytest_cache/
+
+# agent-baseline: respaldos de reinstalacion
+.baseline-backup/
