@@ -5,21 +5,26 @@
 
 ## Tarea activa
 
-Auth Google — arreglo de `AuthService` / rutas tras AttributeError reportado por el frontend (500 sin CORS → status 0 en navegador).
+Auth Google — `google_service.py` reescrito (camino único por tokeninfo). Espera re-prueba del frontend.
 
 ## Último avance comprobado
 
-- `service.py`: indentación corrupta corregida (`google_login` estaba en col 0 → clase rota; `register`, `get_profile`, `refresh_token`, `logout` anidados dentro). +`from datetime import datetime` (lo usaba `refresh_token`). Verificado: `import src.api.auth.routes` OK; las 6 rutas registradas y sus métodos existen en `AuthService`.
-- `routes.py`: `CredentialsException` importado (faltaba → NameError en token vacío); bloque de imports duplicados eliminado.
-- NO probado funcionalmente: requiere `.env` con `GOOGLE_CLIENT_ID` real = client id del frontend + token válido del popup.
+- `google_service.py` era UTF-16 LE (SyntaxError en import). Convertido a UTF-8 SIN BOM, luego reescrito: un solo camino `verify_google_token()` por tokeninfo (access_token e id_token), sin PyJWT/JWKS; check `aud` + `iss` + `email_verified` normalizado; timeout 10s; errores de red → None. `verify_id_token` eliminado (estaba roto: lib equivocada, falta de `key` y de JWKS).
+- Verificado real: import OK; 6 rutas OK; `verify_google_token('token-invalido')` → `None` (llamada real a tokeninfo, sin excepción).
+- NO probado: camino feliz (requiere token del popup) y presencia de `email_verified` en respuesta de access_token.
+
+## Bloqueos
+
+- Si el frontend reporta 401 `Invalid Google token` tras este fix: probable `email_verified` ausente en tokeninfo del access token (flujo implícito). Plan B: pedir id_token (`initCodeClient` / GIS credential) o usar userinfo. Decidir con el usuario.
+- `GOOGLE_CLIENT_ID` del `.env` debe coincidir con el client id del frontend (no verificable, `.env` restringido).
 
 ## Archivos tocados
 
-- `src/api/auth/service.py`, `src/api/auth/routes.py`
+- `src/api/auth/service.py`, `src/api/auth/routes.py`, `src/api/auth/google_service.py`
 
 ## Pruebas ejecutadas y resultado real
 
-- `.venv\Scripts\python.exe -c "import src.api.auth.routes ..."` → import OK; rutas: /login, /register, /refresh, /logout, /me, /google. Sin pytest (suite no configurada). Sin prueba e2e de /auth/google.
+- `.venv\Scripts\python.exe -c "import src.api.auth.routes ...; asyncio.run(verify_google_token('token-invalido'))"` → import OK; 6 rutas; token inválido → `None` (llamada real a tokeninfo). Sin pytest. Sin e2e con token real.
 
 ## Bloqueos
 
