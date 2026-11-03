@@ -40,6 +40,47 @@ class AuthService:
             "token_type": "bearer",
         }
 
+async def google_login(self, id_token: str) -> dict:
+    import httpx
+    from .google_service import verify_google_token
+    info = await verify_google_token(id_token)
+    if not info or not info.get("email_verified"):
+        raise CredentialsException("Invalid Google token")
+
+    # Find existing identity
+    from ...models import UserIdentity as UI
+    result = await self.db.execute(
+        __import__("sqlalchemy").select(UI).where(UI.provider_id == "google", UI.provider_user_id == info["sub"])
+    )
+    identity = result.scalar_one_or_none()
+
+    if identity:
+        user = await self.db.get(__import__("...models", fromlist=["User"]).User, identity.user_id)
+    else:
+        # Create user + identity
+        repo = UserRepository(self.db)
+        user = await repo.create(
+            email=info.get("email"),
+            password_hash=None,
+            email_verified=True,
+            name=info.get("given_name"),
+            lastname=info.get("family_name"),
+        )
+        id_repo = UserIdentityRepository(self.db)
+        await id_repo.create(
+            user_id=user.id,
+            provider_id="google",
+            provider_user_id=info["sub"],
+            provider_user_email=info.get("email"),
+            is_primary=True,
+        )
+
+    if not user or not user.is_active:
+        raise CredentialsException("Account disabled")
+
+    access_token = create_access_token(subject=str(user.id))
+    return {"access_token": access_token, "token_type": "bearer", "expires_in": 900}
+
     async def register(self, user_data: UserRegister) -> dict:
         """Register new user."""
         repo = UserRepository(self.db)

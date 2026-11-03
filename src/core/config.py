@@ -43,7 +43,7 @@ class Settings:
     RATE_LIMIT_PER_HOUR: int = int(os.getenv("RATE_LIMIT_PER_HOUR", "1000"))
     
     # CORS
-    BACKEND_CORS_ORIGINS: list = []
+    BACKEND_CORS_ORIGINS: list = ["http://localhost:4200", "http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:5500", "http://localhost:4321"]
     
     @property
     def is_development(self) -> bool:
