@@ -17,5 +17,4 @@ class AuthProvider(Base):
     name: Mapped[str] = Column(String(50), unique=True, nullable=False)
     display_name: Mapped[str | None] = Column(String(100), nullable=True)
     is_active: Mapped[bool] = Column(Boolean, nullable=False, default=True)
-    config: Mapped[str | None] = Column(String, nullable=True)  # JSON config
     created_at: Mapped[datetime] = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

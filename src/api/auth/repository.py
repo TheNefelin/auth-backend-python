@@ -3,10 +3,12 @@
 Handles database operations for authentication entities.
 """
 
-from sqlalchemy import select
+import uuid
+
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import User, UserRole, UserStatus
+from ...models import User, UserRole, UserStatus, AuthProvider
 from ...core.database import get_async_session, AsyncSessionLocal
 
 
@@ -21,14 +23,19 @@ class UserRepository:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
-    async def get_by_id(self, user_id: int) -> "User | None":
+    async def get_by_id(self, user_id: uuid.UUID) -> "User | None":
         """Get user by ID."""
         return await self.db.get(User, user_id)
 
     async def create(self, email: str, password_hash: "str | None", email_verified: bool,
                      name: "str | None", lastname: "str | None") -> "User":
-        """Create new user."""
-        from sqlalchemy import func
+        """Create new user con rol y status por defecto del seed (user / activo)."""
+        role = (await self.db.execute(select(UserRole).where(UserRole.name == "user"))).scalar_one_or_none()
+        if role is None:
+            raise RuntimeError("Seed faltante: no existe el rol 'user' (user_roles)")
+        status = (await self.db.execute(select(UserStatus).where(UserStatus.name == "activo"))).scalar_one_or_none()
+        if status is None:
+            raise RuntimeError("Seed faltante: no existe el status 'activo' (user_status)")
 
         user = User(
             email=email,
@@ -36,8 +43,8 @@ class UserRepository:
             email_verified=email_verified,
             name=name,
             lastname=lastname,
-            created_at=func.now(),
-            updated_at=func.now(),
+            user_role_id=role.id,
+            status_id=status.id,
         )
         self.db.add(user)
         await self.db.flush()
@@ -113,7 +120,7 @@ class UserIdentityRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_primary_by_user(self, user_id: int) -> "UserIdentity | None":
+    async def get_primary_by_user(self, user_id: uuid.UUID) -> "UserIdentity | None":
         """Get primary identity by user."""
         from ...models import UserIdentity as UI
 
@@ -122,20 +129,19 @@ class UserIdentityRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create(self, user_id: int, provider_id: str, provider_user_id: str,
-                     provider_user_email: "str | None" = None, is_primary: bool = False) -> "UserIdentity":
-        """Create new user identity."""
+    async def create(self, user_id: uuid.UUID, provider_id: int, provider_user_id: str,
+                     email: "str | None" = None, is_primary: bool = False,
+                     profile_data: "dict | None" = None) -> "UserIdentity":
+        """Create new user identity (provider_id es el id de auth_providers)."""
         from ...models import UserIdentity as UI
-        from sqlalchemy import func
 
         identity = UI(
             user_id=user_id,
             provider_id=provider_id,
             provider_user_id=provider_user_id,
-            provider_user_email=provider_user_email,
+            email=email,
             is_primary=is_primary,
-            is_email_verified=False,
-            created_at=func.now(),
+            profile_data=profile_data,
         )
         self.db.add(identity)
         await self.db.flush()

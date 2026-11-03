@@ -41,22 +41,34 @@ class AuthService:
             "token_type": "bearer",
         }
 
-    async def google_login(self, id_token: str) -> dict:
-        import httpx
+    async def google_login(self, google_token: str) -> dict:
+        from sqlalchemy import select
+
+        from ...models import User, UserIdentity
         from .google_service import verify_google_token
-        info = await verify_google_token(id_token)
-        if not info or not info.get("email_verified"):
+        from .repository import AuthProviderRepository
+
+        info = await verify_google_token(google_token)
+        if not info:
             raise CredentialsException("Invalid Google token")
 
-        # Find existing identity
-        from ...models import UserIdentity as UI
+        provider = await AuthProviderRepository(self.db).get_by_name("google")
+        if provider is None:
+            raise RuntimeError("Seed faltante: no existe el auth_provider 'google'")
+        if not provider.is_active:
+            raise CredentialsException("Google login is disabled")
+
+        # Find existing identity by (provider, provider_user_id)
         result = await self.db.execute(
-            __import__("sqlalchemy").select(UI).where(UI.provider_id == "google", UI.provider_user_id == info["sub"])
+            select(UserIdentity).where(
+                UserIdentity.provider_id == provider.id,
+                UserIdentity.provider_user_id == info["sub"],
+            )
         )
         identity = result.scalar_one_or_none()
 
-        if identity:
-            user = await self.db.get(__import__("...models", fromlist=["User"]).User, identity.user_id)
+        if identity is not None:
+            user = await self.db.get(User, identity.user_id)
         else:
             # Create user + identity
             repo = UserRepository(self.db)
@@ -70,13 +82,13 @@ class AuthService:
             id_repo = UserIdentityRepository(self.db)
             await id_repo.create(
                 user_id=user.id,
-                provider_id="google",
+                provider_id=provider.id,
                 provider_user_id=info["sub"],
-                provider_user_email=info.get("email"),
+                email=info.get("email"),
                 is_primary=True,
             )
 
-        if not user or not user.is_active:
+        if user is None or not user.can_authenticate():
             raise CredentialsException("Account disabled")
 
         access_token = create_access_token(subject=str(user.id))

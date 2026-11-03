@@ -5,14 +5,18 @@
 
 ## Tarea activa
 
-Auth Google — `google_service.py` reescrito (camino único por tokeninfo). Espera re-prueba del frontend.
+Auth Google — drift modelo↔DDL corregido. Espera re-prueba del frontend (camino feliz: CREATE user + identity).
 
 ## Último avance comprobado
 
-- `google_service.py`: UTF-16→UTF-8, reescrito (solo tokeninfo, sin PyJWT/JWKS). +`[auth-debug]` TEMPORAL en `verify_google_token` (logs de status/aud_ok/iss/email_verified, nunca el token).
-- `exceptions.py`: `CredentialsException` ahora acepta `detail` opcional (10 call sites la usaban con mensaje → TypeError). Typo `super__` de `ValidationException` reportado, NO tocado (clase sin uso).
-- Verificado real: import OK; `CredentialsException()` y `CredentialsException('x')` OK; dummy token → 400 de Google → logs visibles → `None`, sin excepción.
-- NO probado: camino feliz (token del popup).
+- `user_identity.py` reescrito al DDL (UUID, user_id/provider_id FK, `email`, `profile_data` JSONB). `auth_provider.py`: quitado `config` (no existe en DDL). `base.py`: fk naming convention arreglada (`column_0_name`). `repository.py`: import AuthProvider, UUID en ids, `create()` resuelve rol `user` + status `activo` del seed, identidad crea con columna `email`. `service.google_login`: imports normales, lookup por provider_id real, sin `__import__`, `can_authenticate()`. `routes.py`: `AuthGoogleRequest` (min_length=1) + `response_model=Token`. `config.py`: `load_dotenv()` agregado (antes el .env NUNCA se leía). `exceptions.py`: CredentialsException acepta detail. `[auth-debug]` TEMPORAL sigue en google_service.py.
+- Verificado real: import + configure_mappers OK; 6 rutas OK; SELECT informativo (read-only) contra la BD: user_identities = id,user_id,provider_id,provider_user_id,email,profile_data,is_primary,created_at; seeds: roles admin/user, status activo/bloqueado/inactivo, providers google id=2 activo.
+- BD confirma: esquema real = schema_auth.sql. Google tokeninfo verificado e2e hasta la consulta (aud/iss/email_verified OK).
+- NO probado: INSERT real (crea usuario en tu BD) — requiere que tú pulses el botón.
+
+## Pruebas ejecutadas y resultado real
+
+- Import + configure_mappers + SELECT de solo lectura contra la BD real. Sin pytest. Sin e2e con token real.
 
 ## Bloqueos
 

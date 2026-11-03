@@ -137,6 +137,16 @@ class UserLogin(BaseModel):
     password: str
 
 
+class AuthGoogleRequest(BaseModel):
+    """Google login request (GIS implicit flow, access_token del frontend)."""
+
+    googleToken: str = Field(
+        ...,
+        min_length=1,
+        description="access_token o id_token emitido por Google Identity Services",
+    )
+
+
 class UserRegister(BaseModel):
     email: str
     password: str

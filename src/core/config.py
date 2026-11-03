@@ -1,10 +1,17 @@
 """Configuration module for the Auth Unificado backend.
 
 Provides application settings loaded from environment variables.
+Loads .env via python-dotenv before reading any variable.
 """
 
 import os
 from functools import lru_cache
+
+from dotenv import load_dotenv
+
+# Carga el .env de la raíz del backend (búsqueda ascendente desde este archivo).
+# Variables ya presentes en el entorno tienen prioridad (override=False por defecto).
+load_dotenv()
 
 
 @lru_cache()
