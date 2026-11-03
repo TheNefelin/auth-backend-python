@@ -44,38 +44,6 @@ class APIResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
 
 
-# ========== Google OAuth Schemas ==========
-
-class GoogleTokenInfo(BaseModel):
-    """Google token info verification schema."""
-    aud: str = Field(..., description="Audience (client ID)")
-    email: str = Field(..., description="User email")
-    email_verified: bool = Field(..., description="Email verified status")
-    sub: str = Field(..., description="Google user ID")
-    iss: str = Field(..., description="Issuer")
-    exp: int = Field(..., description="Expiration timestamp")
-    iat: int = Field(..., description="Issued-at timestamp")
-    
-    @validator("aud")
-    def validate_aud(cls, v: str) -> str:
-        from .config import settings
-        if v != settings.get_settings().GOOGLE_CLIENT_ID:
-            raise ValueError("Invalid client ID - token not issued for this application")
-        return v
-
-
-class GoogleUserInfo(BaseModel):
-    """Google user info schema."""
-    sub: str = Field(..., description="Google user ID")
-    email: str = Field(..., description="User email")
-    email_verified: bool = Field(..., description="Email verified")
-    name: str = Field(..., description="Full name")
-    given_name: str = Field(..., description="Given name")
-    family_name: str = Field(..., description="Family name")
-    picture: str = Field(..., description="Profile picture URL")
-    locale: str = Field(..., description="Locale")
-
-
 # ========== Provider Link/Unlink Schemas ==========
 
 class ProviderLinkRequest(BaseModel):

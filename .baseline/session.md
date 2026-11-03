@@ -9,9 +9,14 @@ AUTH Google — el login funciona extremo a extremo (verificado por el usuario).
 
 ## Último avance comprobado
 
-- **`core/dependencies.py`**: `get_db()` ahora hace `commit()` al final de la request y `rollback()` ante excepción (antes nada persistía: `users` y `user_identities` quedaban en 0 pese al login "OK"). Import verificado (error menor `AsyncGenerator` corregido: 2 parámetros).
-- Flujo Google completo OK: popup → POST /auth/google → verify (tokeninfo) → INSERT user+identity → 200 → /home en el frontend. Pendiente confirmar persistencia post-fix con re-prueba.
-- Commit del backend hecho por el usuario (2b59edb). Único cambio sin commitear: eliminación de los `[auth-debug]` temporales + este fix de `get_db()`.
+- Config: `get_settings()`/`@lru_cache` eliminados → `settings = Settings()` directo. `.env` es fuente de verdad (required DATABASE_URL/JWT_SECRET_KEY, CORS_ORIGINS desde .env; SIN variables durísimas; vocabulario JWT_*). `.env.demo` alineado (GOOGLE_CLIENT_ID real). `main.py`: CORS desde settings.
+- `dtos.py`: DTOs muertos `GoogleTokenInfo`/`GoogleUserInfo` eliminados.
+- `get_db()` hace commit al final de la request (persistencia real de /auth/google). `AuthService`, `google_service.py`, `models/*`, `routes.py` corregidos según esquema DDL real. Login Google funciona end-to-end (usuario).
+- Único sin commitear: este cleanup (config + dtos).
+
+## Pruebas ejecutadas y resultado real
+
+- Boot real OK (`import routes`); 6 rutas; sin referencias colgadas; persistencia validada por el usuario (fila en users tras re-login post-fix `get_db`).
 - Pendiente menor: `GOOGLE_CLIENT_ID` del `.env` coincide con el del frontend (aud OK — confirmado por el usuario). JWT_SECRET_KEY del .env no verificada (última medición: `False`/default inseguro).
 
 ## Archivos tocados (tras el último commit)

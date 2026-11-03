@@ -9,7 +9,6 @@
 
 import json
 import os
-from functools import lru_cache
 
 from dotenv import load_dotenv
 
@@ -45,12 +44,6 @@ def _parse_cors_origins() -> list[str]:
     return origins
 
 
-@lru_cache()
-def get_settings() -> "Settings":
-    """Get application settings from environment variables."""
-    return Settings()
-
-
 class Settings:
     """Application settings. .env manda; lo que falta, falla."""
 
@@ -70,12 +63,8 @@ class Settings:
     # Google OAuth ("" = no configurado)
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    GOOGLE_TOKEN_INFO_URL: str = os.getenv(
-        "GOOGLE_TOKEN_INFO_URL", "https://oauth2.googleapis.com/tokeninfo"
-    )
-    GOOGLE_USERINFO_URL: str = os.getenv(
-        "GOOGLE_USERINFO_URL", "https://www.googleapis.com/oauth2/v3/userinfo"
-    )
+    GOOGLE_TOKEN_INFO_URL: str = os.getenv("GOOGLE_TOKEN_INFO_URL", "https://oauth2.googleapis.com/tokeninfo")
+    GOOGLE_USERINFO_URL: str = os.getenv("GOOGLE_USERINFO_URL", "https://www.googleapis.com/oauth2/v3/userinfo")
     GOOGLE_ISSUER: str = os.getenv("GOOGLE_ISSUER", "https://accounts.google.com")
     GOOGLE_SCOPE: str = os.getenv("GOOGLE_SCOPE", "openid email profile")
 
@@ -88,4 +77,4 @@ class Settings:
 
 
 # Global instance for easy import
-settings = get_settings()
+settings = Settings()
