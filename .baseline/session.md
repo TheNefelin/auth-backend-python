@@ -9,14 +9,14 @@ AUTH Google — el login funciona extremo a extremo (verificado por el usuario).
 
 ## Último avance comprobado
 
-- Config: `get_settings()`/`@lru_cache` eliminados → `settings = Settings()` directo. `.env` es fuente de verdad (required DATABASE_URL/JWT_SECRET_KEY, CORS_ORIGINS desde .env; SIN variables durísimas; vocabulario JWT_*). `.env.demo` alineado (GOOGLE_CLIENT_ID real). `main.py`: CORS desde settings.
-- `dtos.py`: DTOs muertos `GoogleTokenInfo`/`GoogleUserInfo` eliminados.
-- `get_db()` hace commit al final de la request (persistencia real de /auth/google). `AuthService`, `google_service.py`, `models/*`, `routes.py` corregidos según esquema DDL real. Login Google funciona end-to-end (usuario).
-- Único sin commitear: este cleanup (config + dtos).
+- `get_db()` hace commit al cerrar request (backend ya persiste; `users`/`user_identities` OK). Login Google e2e OK (usuario).
+- Config: `.env` como única fuente de verdad (sin defaults inseguros ni CORS dura); vocabulario `JWT_*` unificado (`JWT_SECRET_KEY`/`JWT_ACCESS_EXPIRE_MINUTES`/`JWT_REFRESH_EXPIRE_DAYS`); soporte `load_dotenv`; `main.py` CORS desde settings; `.env.demo` alineado (GOOGLE_CLIENT_ID real, tests/testing). Sin `lru_cache`/`get_settings` (`settings = Settings()` directo). `GoogleTokenInfo`/`GoogleUserInfo` eliminados (código muerto).
+- Commit del usuario al día hasta el rename JWT_*; SIN commitear: cleanup `config.py` + `dtos.py`.
+- Decisión pendiente en `.env.demo`: `DEBUG=True` y `API_KEY=TestingApiKey` (nadie los lee/verifica).
 
 ## Pruebas ejecutadas y resultado real
 
-- Boot real OK (`import routes`); 6 rutas; sin referencias colgadas; persistencia validada por el usuario (fila en users tras re-login post-fix `get_db`).
+- Boot real OK (`import src.api.auth.routes`, 6 rutas). Login e2e: OK (usuario). Persistencia confirmada (fila en users, vía re-prueba del usuario + SELECT read-only).
 - Pendiente menor: `GOOGLE_CLIENT_ID` del `.env` coincide con el del frontend (aud OK — confirmado por el usuario). JWT_SECRET_KEY del .env no verificada (última medición: `False`/default inseguro).
 
 ## Archivos tocados (tras el último commit)
