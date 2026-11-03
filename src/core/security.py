@@ -36,7 +36,7 @@ def create_access_token(
     if expires_delta:
         expire = now + expires_delta
     else:
-        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = now + timedelta(minutes=settings.JWT_ACCESS_EXPIRE_MINUTES)
     
     to_encode = {"sub": str(subject), "exp": expire, "iat": now}
     
