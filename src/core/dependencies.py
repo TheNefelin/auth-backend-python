@@ -4,7 +4,7 @@ Provides reusable FastAPI dependencies such as database sessions,
 current user retrieval, and rate limiting.
 """
 
-from typing import Generator, Optional
+from typing import AsyncGenerator, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,10 +14,21 @@ from .security import get_token_from_header, decode_access_token
 from .config import settings
 
 
-async def get_db() -> Generator[AsyncSession, None, None]:
-    """Dependency to get an async database session."""
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency to get an async database session.
+
+    La sesión no persiste nada por sí sola: el repository solo hace
+    `flush()`. Aquí se hace commit al final de la request (persiste lo
+    que flusheó) y rollback si hubo una excepción, para que la request
+    sea atómica (p. ej. usuario + identidad se guardan juntos o ninguno).
+    """
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def get_current_user(

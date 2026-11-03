@@ -32,14 +32,11 @@ async def verify_google_token(token: str) -> dict | None:
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
             response = await client.get(settings.GOOGLE_TOKEN_INFO_URL, params={param: token})
-    except httpx.HTTPError as exc:
-        # [auth-debug] temporal, quitar cuando el login funcione
-        print(f"[auth-debug] verify_google_token HTTPError: {exc!r}")
+    except httpx.HTTPError:
+        # Red caída, timeout o error de conexión con Google.
         return None
 
     if response.status_code != 200:
-        # [auth-debug] temporal, quitar cuando el login funcione
-        print(f"[auth-debug] verify_google_token status={response.status_code} body={response.text[:200]}")
         return None
 
     data = response.json()
@@ -51,8 +48,6 @@ async def verify_google_token(token: str) -> dict | None:
     email_verified_ok = str(email_verified).strip().lower() == "true"
 
     if not (aud_ok and iss_ok and email_verified_ok):
-        # [auth-debug] temporal, quitar cuando el login funcione
-        print(f"[auth-debug] rechazado: param={param} aud_ok={aud_ok} iss_ok={iss_ok} email_verified={email_verified!r} aud={data.get('aud')} iss={data.get('iss')!r}")
         return None
 
     return data
