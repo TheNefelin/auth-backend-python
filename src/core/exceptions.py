@@ -25,10 +25,10 @@ class UserNotFoundException(AuthException):
 
 class CredentialsException(AuthException):
     """Raised when credentials are invalid."""
-    
-    def __init__(self):
+
+    def __init__(self, detail: str = "Invalid email or password"):
         super().__init__(
-            detail="Invalid email or password",
+            detail=detail,
             status_code=401,
         )
 

@@ -9,9 +9,10 @@ Auth Google — `google_service.py` reescrito (camino único por tokeninfo). Esp
 
 ## Último avance comprobado
 
-- `google_service.py` era UTF-16 LE (SyntaxError en import). Convertido a UTF-8 SIN BOM, luego reescrito: un solo camino `verify_google_token()` por tokeninfo (access_token e id_token), sin PyJWT/JWKS; check `aud` + `iss` + `email_verified` normalizado; timeout 10s; errores de red → None. `verify_id_token` eliminado (estaba roto: lib equivocada, falta de `key` y de JWKS).
-- Verificado real: import OK; 6 rutas OK; `verify_google_token('token-invalido')` → `None` (llamada real a tokeninfo, sin excepción).
-- NO probado: camino feliz (requiere token del popup) y presencia de `email_verified` en respuesta de access_token.
+- `google_service.py`: UTF-16→UTF-8, reescrito (solo tokeninfo, sin PyJWT/JWKS). +`[auth-debug]` TEMPORAL en `verify_google_token` (logs de status/aud_ok/iss/email_verified, nunca el token).
+- `exceptions.py`: `CredentialsException` ahora acepta `detail` opcional (10 call sites la usaban con mensaje → TypeError). Typo `super__` de `ValidationException` reportado, NO tocado (clase sin uso).
+- Verificado real: import OK; `CredentialsException()` y `CredentialsException('x')` OK; dummy token → 400 de Google → logs visibles → `None`, sin excepción.
+- NO probado: camino feliz (token del popup).
 
 ## Bloqueos
 
