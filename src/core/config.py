@@ -59,6 +59,7 @@ class Settings:
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_ACCESS_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "15"))
     JWT_REFRESH_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "7"))
+    JWT_REFRESH_IDLE_MINUTES: int = int(os.getenv("JWT_REFRESH_IDLE_MINUTES", "30"))
 
     # Google OAuth ("" = no configurado)
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")

@@ -4,15 +4,16 @@ Contains business logic for authentication operations.
 """
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from ...core.dependencies import get_db
-from ...core.security import create_access_token, verify_password
+from ...core.security import create_access_token, generate_refresh_token, verify_password
 from ...core.exceptions import CredentialsException
+from ...core.config import settings
 from ...schemas.dtos import UserLogin, UserRegister, UserProfile, Token, UserProfile
 from ...models import User
 from .repository import UserRepository, UserRoleRepository, UserStatusRepository, \
     AuthProviderRepository, UserIdentityRepository, UserSessionRepository
-from datetime import datetime
 
 
 class AuthService:
@@ -108,8 +109,7 @@ class AuthService:
         if user is None or not user.can_authenticate():
             raise CredentialsException("Account disabled")
 
-        access_token = create_access_token(subject=str(user.id))
-        return {"access_token": access_token, "token_type": "bearer", "expires_in": 900}
+        return await self._issue_tokens(user.id)
 
     async def register(self, user_data: UserRegister) -> dict:
         """Register new user."""
@@ -164,46 +164,69 @@ class AuthService:
         )
 
     async def refresh_token(self, refresh_token: str) -> dict:
-        """Refresh JWT token."""
-        from ...models import UserSession
+        """Rota el refresh token y emite un nuevo par access/refresh.
 
+        Reglas:
+        - El refresh debe existir (por hash), no estar revocado, y no haber
+          superado la expiración ABSOLUTA (`expires_at`).
+        - IDLE timeout: si `last_used_at` supera el umbral de inactividad,
+          la sesión se revoca y se rechaza.
+        - Rotación: el token usado se revoca y se emite uno nuevo con la
+          MISMA expiración absoluta (no se extiende el techo de la sesión).
+        """
         repo = UserSessionRepository(self.db)
         session = await repo.get_by_refresh_token(refresh_token)
 
         if not session or session.is_revoked:
             raise CredentialsException("Invalid or revoked refresh token")
 
-        if session.expires_at < datetime.utcnow():  # type: ignore
-            await repo.soft_delete(session)
+        now = datetime.now(timezone.utc)
+
+        if session.expires_at <= now:
+            await repo.revoke(session)
             raise CredentialsException("Refresh token has expired")
 
-        from ...models import User as UserModel
-        user = await self.db.get(UserModel, session.user_id)  # type: ignore
+        idle_limit = timedelta(minutes=settings.JWT_REFRESH_IDLE_MINUTES)
+        if session.last_used_at is not None and session.last_used_at <= now - idle_limit:
+            await repo.revoke(session)
+            raise CredentialsException("Session expired due to inactivity")
 
-        if not user or not user.is_active:
+        from ...models import User as UserModel
+        user = await self.db.get(UserModel, session.user_id)
+
+        if not user or not user.can_authenticate():
             raise CredentialsException("User not found or disabled")
 
-        # Revoke old token and create new ones
-        await repo.soft_delete(session)
-
-        new_access_token = create_access_token(subject=str(user.id))
-        new_refresh_token = await repo.create(
-            user_id=user.id,
-            refresh_token="",  # Will be set by the caller
-            expires_at=None,  # Will be set by the caller
-        )
-
-        return {
-            "access_token": new_access_token,
-            "refresh_token": new_refresh_token,
-            "expires_in": 900,
-            "token_type": "bearer",
-        }
+        # Rotación: revoca el token usado y emite uno nuevo conservando el techo absoluto.
+        await repo.revoke(session)
+        return await self._issue_tokens(user.id, expires_at=session.expires_at)
 
     async def logout(self, user_id: str) -> dict:
-        """Logout user."""
+        """Revoca todas las sesiones activas del usuario."""
         repo = UserSessionRepository(self.db)
-
-        # Revoke all active sessions for user
-        # In a real implementation, we'd find and revoke the specific session
+        await repo.revoke_all_for_user(uuid.UUID(user_id))
         return {"status": "logged_out"}
+
+    async def _issue_tokens(self, user_id, expires_at=None) -> dict:
+        """Emite access + refresh token y persiste la sesión (hash).
+
+        `expires_at` se reutiliza en la rotación para no extender el techo
+        absoluto de la sesión; en un login nuevo se calcula desde config.
+        """
+        now = datetime.now(timezone.utc)
+        absolute_expiry = expires_at or now + timedelta(days=settings.JWT_REFRESH_EXPIRE_DAYS)
+
+        refresh_plain = generate_refresh_token()
+        await UserSessionRepository(self.db).create(
+            user_id=user_id,
+            refresh_token=refresh_plain,
+            expires_at=absolute_expiry,
+        )
+
+        access_token = create_access_token(subject=str(user_id))
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_plain,
+            "token_type": "bearer",
+            "expires_in": settings.JWT_ACCESS_EXPIRE_MINUTES * 60,
+        }

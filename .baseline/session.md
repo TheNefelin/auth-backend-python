@@ -5,14 +5,22 @@
 
 ## Tarea activa
 
-AUTH Google completo extremo a extremo (login + `/auth/me`). Usuario construye `user-details-component` en el frontend.
+Refresh token con rotación + expiración absoluta + idle timeout. Backend implementado; falta el frontend (Tier 2).
 
 ## Último avance comprobado
 
-- `/auth/me` FUNCIONA de punta a punta (verificado E2E con TestClient): 200 con perfil real (`email`, `role=user`, `status=activo`, `email_verified=true`, `picture_url=null`), 401 sin token, 401 con token malformado (antes 500).
-- `core/dependencies.py`: `get_current_user` reescrito — `HTTPBearer` (antes query param `authorization`), `uuid.UUID(sub)` (antes string crudo → asyncpg error), import `src.models` (antes `.models` inexistente), decode de JWT envuelto en 401 (antes ValueError cruda → 500 sin CORS).
-- `service.get_profile`: `int()` → `uuid.UUID`; enriquecido con `picture_url` + `role`/`status` desde BD (nuevos `UserRoleRepository.get_by_id` y `UserStatusRepository.get_by_id`).
-- Login Google completo OK (usuario en navegador + fila en BD confirmada read-only).
+- Refresh implementado (backend): `security.py` (generate/hash SHA-256 del refresh), `repository.py` (`UserSessionRepository`: create con hash, get_by_refresh_token por hash, touch, revoke, revoke_all_for_user), `service.py` (`_issue_tokens` emite access+refresh y persiste; `refresh_token` con rotación que conserva el techo absoluto + idle timeout; `logout` revoca todas las sesiones), `config.py` (`JWT_REFRESH_IDLE_MINUTES=30`), `dtos.py` (`RefreshRequest`), `routes.py` (`/refresh` con DTO real, `response_model=Token`), `models/user_session.py` (last_used_at + user_id UUID FK), `schema_auth.sql` (last_used_at en DDL — BD recreada por el usuario).
+- Verificado real: tabla `user_sessions` tiene `last_used_at`; `POST /auth/refresh` con token válido → 200 con par nuevo. Smoke de rotación/idle/absoluto: la primera aserción pasó; las siguientes las abortó un fallo del harness (loop de asyncio con TestClient), NO del código.
+- Login Google e2e OK (usuario). `/auth/me` 200 con `provider`. `/auth/google` guarda name/lastname/picture de Google userinfo (fix booleano incluido).
+
+## Pruebas ejecutadas y resultado real
+
+- `configure_mappers` + import rutas OK; SELECT read-only confirma esquema; refresh válido 200. Smoke E2E de casos de error incompleto (harness). Sin pytest.
+
+## Siguiente paso
+
+- Frontend: guardar `refresh_token` (store), authInterceptor 401→refresh→retry, logout limpia ambos tokens.
+- Pendientes previos: `ValidationException.super__` typo, `.env.demo` DEBUG/API_KEY, `verify_api_key_header` (2º round), tests.
 
 ## Archivos tocados (tras el último commit)
 

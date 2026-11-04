@@ -3,8 +3,10 @@
 Handles JWT token creation, validation, and password hashing.
 """
 
+import hashlib
 import json
 import base64
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt, JWTError
@@ -72,3 +74,13 @@ def get_token_from_header(authorization: str | None) -> str | None:
         return None
     
     return parts[1]
+
+
+def generate_refresh_token() -> str:
+    """Genera un refresh token opaco (aleatorio, no predecible)."""
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    """SHA-256 del refresh token. La BD guarda solo el hash, nunca el token."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

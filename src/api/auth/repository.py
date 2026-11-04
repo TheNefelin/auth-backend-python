@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import User, UserRole, UserStatus, AuthProvider
 from ...core.database import get_async_session, AsyncSessionLocal
 
-
 class UserRepository:
     """Repository for User entity."""
 
@@ -162,35 +161,60 @@ class UserIdentityRepository:
 
 
 class UserSessionRepository:
-    """Repository for UserSession entity."""
+    """Repository for UserSession entity.
+
+    El refresh_token se recibe en CLARO desde el service y aquí se hashea
+    antes de tocar la BD: nunca se persiste el token en claro.
+    """
 
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create(self, user_id: int, refresh_token: str, expires_at) -> "UserSession":
-        """Create new session."""
+    async def create(self, user_id: uuid.UUID, refresh_token: str, expires_at) -> "UserSession":
+        """Create new session (guarda el hash del refresh token)."""
+        from ...core.security import hash_refresh_token
         from ...models import UserSession as US
-        from sqlalchemy import func
 
         session = US(
             user_id=user_id,
-            refresh_token=refresh_token,
+            refresh_token=hash_refresh_token(refresh_token),
             expires_at=expires_at,
             is_revoked=False,
-            created_at=func.now(),
         )
         self.db.add(session)
         await self.db.flush()
         return session
 
     async def get_by_refresh_token(self, refresh_token: str) -> "UserSession | None":
-        """Get session by refresh token."""
+        """Get session by refresh token (busca por hash)."""
+        from ...core.security import hash_refresh_token
         from ...models import UserSession as US
 
         result = await self.db.execute(
-            select(US).where(US.refresh_token == refresh_token)
+            select(US).where(US.refresh_token == hash_refresh_token(refresh_token))
         )
         return result.scalar_one_or_none()
+
+    async def touch(self, session: "UserSession") -> None:
+        """Actualiza last_used_at (sesión activa)."""
+        session.last_used_at = func.now()
+        await self.db.flush()
+
+    async def revoke(self, session: "UserSession") -> None:
+        """Revoca la sesión."""
+        session.is_revoked = True
+        await self.db.flush()
+
+    async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
+        """Revoca todas las sesiones activas del usuario (logout global)."""
+        from ...models import UserSession as US
+
+        result = await self.db.execute(
+            select(US).where(US.user_id == user_id, US.is_revoked == False)  # noqa: E712
+        )
+        for session in result.scalars().all():
+            session.is_revoked = True
+        await self.db.flush()
 
     async def soft_delete(self, session: "UserSession") -> "UserSession":
         """Soft delete session (revoke)."""

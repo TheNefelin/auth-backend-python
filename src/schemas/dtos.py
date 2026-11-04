@@ -143,3 +143,7 @@ class Token(BaseModel):
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
     expires_in: int = 900
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1, description="Refresh token emitido en el login")

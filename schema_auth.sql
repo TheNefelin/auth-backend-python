@@ -14,6 +14,22 @@
 --       La BD solo almacena: name, display_name, is_active (datos de negocio).
 -- ============================================================
 
+SELECT * FROM User_identities;
+SELECT * FROM User_mfa;
+SELECT * FROM User_recovery_codes;
+SELECT * FROM User_Sessions;
+SELECT * FROM Users;
+SELECT * FROM User_roles;
+SELECT * FROM User_Status;
+
+--DROP TABLE User_identities;
+--DROP TABLE User_mfa;
+--DROP TABLE User_recovery_codes;
+--DROP TABLE User_Sessions;
+--DROP TABLE Users;
+--DROP TABLE User_roles;
+--DROP TABLE User_Status;
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ------------------------------------------------------------
@@ -99,12 +115,17 @@ ON user_identities(user_id) WHERE is_primary = TRUE;
 
 -- ------------------------------------------------------------
 -- Sesiones de usuario (refresh tokens)
+-- El refresh_token se guarda como hash SHA-256 (nunca en claro).
+-- expires_at  = expiración ABSOLUTA de la sesión (p. ej. 1 día desde el login).
+-- last_used_at = última vez que el refresh fue usado; con idle timeout,
+--                si supera el umbral de inactividad la sesión se revoca.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS user_sessions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   refresh_token VARCHAR(512) UNIQUE NOT NULL,
   expires_at    TIMESTAMPTZ NOT NULL,
+  last_used_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   is_revoked    BOOLEAN NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

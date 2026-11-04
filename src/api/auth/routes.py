@@ -19,10 +19,10 @@ async def register(data: dtos.UserRegister, db: AsyncSession = Depends(get_db)):
     return await svc.register(data)
 
 
-@router.post("/refresh")
-async def refresh(refresh_token: str, db: AsyncSession = Depends(get_db)):
+@router.post("/refresh", response_model=dtos.Token)
+async def refresh(data: dtos.RefreshRequest, db: AsyncSession = Depends(get_db)):
     svc = service.AuthService(db)
-    return await svc.refresh_token(refresh_token)
+    return await svc.refresh_token(data.refresh_token)
 
 
 @router.post("/logout")
