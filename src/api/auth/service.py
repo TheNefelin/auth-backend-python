@@ -83,7 +83,7 @@ class AuthService:
                 user.name = given_name or user.name
                 user.lastname = family_name or user.lastname
                 user.picture_url = picture or user.picture_url
-                user.email_verified = info.get("email_verified", user.email_verified)
+                user.email_verified = str(info.get("email_verified", user.email_verified)).lower() == "true"
                 await self.db.flush()
         else:
             # Create user + identity
