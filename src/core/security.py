@@ -10,13 +10,15 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt, JWTError
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 
 from .config import settings
 
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing (pwdlib: recomendado; passlib está sin mantenimiento y
+# es incompatible con bcrypt >= 4.1). Se usa bcrypt explícitamente.
+pwd_context = PasswordHash((BcryptHasher(),))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

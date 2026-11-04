@@ -5,17 +5,20 @@
 
 ## Tarea activa
 
-Refresh token con rotación + expiración absoluta + idle timeout. Backend implementado; falta el frontend (Tier 2).
+Auth Google e2e funcionando + suite de tests (front y back) en verde.
 
 ## Último avance comprobado
 
-- Refresh implementado (backend): `security.py` (generate/hash SHA-256 del refresh), `repository.py` (`UserSessionRepository`: create con hash, get_by_refresh_token por hash, touch, revoke, revoke_all_for_user), `service.py` (`_issue_tokens` emite access+refresh y persiste; `refresh_token` con rotación que conserva el techo absoluto + idle timeout; `logout` revoca todas las sesiones), `config.py` (`JWT_REFRESH_IDLE_MINUTES=30`), `dtos.py` (`RefreshRequest`), `routes.py` (`/refresh` con DTO real, `response_model=Token`), `models/user_session.py` (last_used_at + user_id UUID FK), `schema_auth.sql` (last_used_at en DDL — BD recreada por el usuario).
-- Verificado real: tabla `user_sessions` tiene `last_used_at`; `POST /auth/refresh` con token válido → 200 con par nuevo. Smoke de rotación/idle/absoluto: la primera aserción pasó; las siguientes las abortó un fallo del harness (loop de asyncio con TestClient), NO del código.
-- Login Google e2e OK (usuario). `/auth/me` 200 con `provider`. `/auth/google` guarda name/lastname/picture de Google userinfo (fix booleano incluido).
+- **Tests backend 31/31** (`pytest`, unitarios sin BD): security, google_service, dependencies (roles), auth_service (refresh: rotación/idle/absoluto). Config en `pytest.ini`. Eliminado `test_google_auth.py` obsoleto.
+- **Tests frontend 18/18** (`ng test`, vitest): auth-store, auth-guard, auth-interceptor, user-details.
+- **Hashing migrado `passlib` → `pwdlib[bcrypt]`** (`security.py` usa `PasswordHash((BcryptHasher(),))`). passlib está abandonado e incompatible con bcrypt≥4.1; destapado por los tests.
+- **README backend reescrito**: alineado a la realidad (JWT_*, pwdlib, schema en backend-python, endpoints reales, regla del venv, sección Tests). Eliminada basura de sesión previa.
+- Entorno: UN solo Python (3.14.7) + venv aislado. Regla: activar `.venv` para todo. Deps: `pwdlib[bcrypt] bcrypt pytest pytest-asyncio`.
+- Login Google e2e, refresh, guard, logout server-side: OK (usuarios). Frontend commiteado por el usuario.
 
 ## Pruebas ejecutadas y resultado real
 
-- `configure_mappers` + import rutas OK; SELECT read-only confirma esquema; refresh válido 200. Smoke E2E de casos de error incompleto (harness). Sin pytest.
+- `pytest` → 31 passed. `ng test --watch=false` → 18 passed. Registro real de ambas corridas.
 
 ## Siguiente paso
 
