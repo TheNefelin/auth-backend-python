@@ -4,14 +4,17 @@ Provides reusable FastAPI dependencies such as database sessions,
 current user retrieval, and rate limiting.
 """
 
-from typing import AsyncGenerator, Optional
+import uuid
+from typing import AsyncGenerator
 
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .database import get_async_session, AsyncSessionLocal
-from .security import get_token_from_header, decode_access_token
+from .security import decode_access_token
 from .config import settings
+from ..models import User
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -31,39 +34,56 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
 async def get_current_user(
     db: AsyncSession = Depends(get_db),
-    authorization: Optional[str] = None,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> dict:
     """Dependency to get the current authenticated user from JWT token."""
-    from .models import User
-    
-    token = get_token_from_header(authorization)
-    if not token:
+    if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication header missing or invalid",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    payload = decode_access_token(token)
-    user_id: str = payload.get("sub")
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except ValueError:
+        # Token inválido/expirado/malformado: es 401, nunca 500.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from None
+    user_id: str | None = payload.get("sub")
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication payload",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user identifier",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # Fetch user from database
-    result = await db.get(User, user_id)
+    result = await db.get(User, user_uuid)
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     return {"id": str(result.id), "email": result.email, "name": result.name}
 
 

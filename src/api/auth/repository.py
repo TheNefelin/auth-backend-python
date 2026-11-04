@@ -75,6 +75,10 @@ class UserRoleRepository:
         result = await self.db.execute(select(UserRole).where(UserRole.name == name))
         return result.scalar_one_or_none()
 
+    async def get_by_id(self, role_id: int) -> "UserRole | None":
+        """Get role by ID."""
+        return await self.db.get(UserRole, role_id)
+
 
 class UserStatusRepository:
     """Repository for UserStatus entity."""
@@ -86,6 +90,10 @@ class UserStatusRepository:
         """Get status by name."""
         result = await self.db.execute(select(UserStatus).where(UserStatus.name == name))
         return result.scalar_one_or_none()
+
+    async def get_by_id(self, status_id: int) -> "UserStatus | None":
+        """Get status by ID."""
+        return await self.db.get(UserStatus, status_id)
 
 
 class AuthProviderRepository:

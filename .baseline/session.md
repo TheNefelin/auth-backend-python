@@ -5,32 +5,27 @@
 
 ## Tarea activa
 
-AUTH Google — el login funciona extremo a extremo (verificado por el usuario). `google_service.py` sin diagnósticos.
+AUTH Google completo extremo a extremo (login + `/auth/me`). Usuario construye `user-details-component` en el frontend.
 
 ## Último avance comprobado
 
-- `get_db()` hace commit al cerrar request (backend ya persiste; `users`/`user_identities` OK). Login Google e2e OK (usuario).
-- Config: `.env` como única fuente de verdad (sin defaults inseguros ni CORS dura); vocabulario `JWT_*` unificado (`JWT_SECRET_KEY`/`JWT_ACCESS_EXPIRE_MINUTES`/`JWT_REFRESH_EXPIRE_DAYS`); soporte `load_dotenv`; `main.py` CORS desde settings; `.env.demo` alineado (GOOGLE_CLIENT_ID real, tests/testing). Sin `lru_cache`/`get_settings` (`settings = Settings()` directo). `GoogleTokenInfo`/`GoogleUserInfo` eliminados (código muerto).
-- Commit del usuario al día hasta el rename JWT_*; SIN commitear: cleanup `config.py` + `dtos.py`.
-- Decisión pendiente en `.env.demo`: `DEBUG=True` y `API_KEY=TestingApiKey` (nadie los lee/verifica).
-
-## Pruebas ejecutadas y resultado real
-
-- Boot real OK (`import src.api.auth.routes`, 6 rutas). Login e2e: OK (usuario). Persistencia confirmada (fila en users, vía re-prueba del usuario + SELECT read-only).
-- Pendiente menor: `GOOGLE_CLIENT_ID` del `.env` coincide con el del frontend (aud OK — confirmado por el usuario). JWT_SECRET_KEY del .env no verificada (última medición: `False`/default inseguro).
+- `/auth/me` FUNCIONA de punta a punta (verificado E2E con TestClient): 200 con perfil real (`email`, `role=user`, `status=activo`, `email_verified=true`, `picture_url=null`), 401 sin token, 401 con token malformado (antes 500).
+- `core/dependencies.py`: `get_current_user` reescrito — `HTTPBearer` (antes query param `authorization`), `uuid.UUID(sub)` (antes string crudo → asyncpg error), import `src.models` (antes `.models` inexistente), decode de JWT envuelto en 401 (antes ValueError cruda → 500 sin CORS).
+- `service.get_profile`: `int()` → `uuid.UUID`; enriquecido con `picture_url` + `role`/`status` desde BD (nuevos `UserRoleRepository.get_by_id` y `UserStatusRepository.get_by_id`).
+- Login Google completo OK (usuario en navegador + fila en BD confirmada read-only).
 
 ## Archivos tocados (tras el último commit)
 
-- `src/api/auth/google_service.py` (eliminados logs de diagnóstico)
+- `src/core/dependencies.py`, `src/api/auth/service.py`, `src/api/auth/repository.py`
 
 ## Pruebas ejecutadas y resultado real
 
-- Import + rutas OK tras la limpieza. Login e2e: éxito reportado por el usuario (no ejecutado por el asistente).
+- `import src.api.auth.routes` OK; TestClient: GET /me 200/401/401 con perfil real. Boot OK.
 
 ## Bloqueos
 
 - Ninguno.
 
-## Siguiente paso
+## Siguiente paso (backend)
 
-- Fase 2: `/auth/me` (UserProfile) y `/refresh` usan `is_active` inexistente → reescribir contra el DDL (status_id/can_authenticate); `ValidationException.super__` typo; `picture_url` de Google sin usar; frontend: logout de home no limpia JWT.
+- Ampliar `/auth/google`: `provider` + `user` (contrato para `UserDetailsComponent`); `picture_url`/name refresh por login (userinfo); `ValidationException.super__` typo (línea 64, sin uso); `.env.demo`: `DEBUG=True` y `API_KEY=TestingApiKey` sin consumidor; `refresh` stub; `/register` e2e sin probar.

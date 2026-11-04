@@ -3,6 +3,8 @@
 Contains business logic for authentication operations.
 """
 
+import uuid
+
 from ...core.dependencies import get_db
 from ...core.security import create_access_token, verify_password
 from ...core.exceptions import CredentialsException
@@ -123,21 +125,24 @@ class AuthService:
     async def get_profile(self, user_id: str) -> UserProfile:
         """Get user profile."""
         repo = UserRepository(self.db)
-        user = await repo.get_by_id(int(user_id))
+        user = await repo.get_by_id(uuid.UUID(user_id))
 
         if not user:
             raise CredentialsException("User not found")
+
+        role = await UserRoleRepository(self.db).get_by_id(user.user_role_id)
+        status = await UserStatusRepository(self.db).get_by_id(user.status_id)
 
         return UserProfile(
             id=str(user.id),
             email=user.email,
             name=user.name,
             lastname=user.lastname,
-            picture_url=None,
+            picture_url=user.picture_url,
             email_verified=user.email_verified,
-            is_active=user.is_active,
-            role=None,
-            status=None,
+            is_active=(status.name == "activo") if status else False,
+            role=role.name if role else None,
+            status=status.name if status else None,
         )
 
     async def refresh_token(self, refresh_token: str) -> dict:
