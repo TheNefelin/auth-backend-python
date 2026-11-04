@@ -47,12 +47,18 @@ class AuthService:
         from sqlalchemy import select
 
         from ...models import User, UserIdentity
-        from .google_service import verify_google_token
+        from .google_service import fetch_google_userinfo, verify_google_token
         from .repository import AuthProviderRepository
 
         info = await verify_google_token(google_token)
         if not info:
             raise CredentialsException("Invalid Google token")
+
+        # Datos del perfil (nombre/imagen): source de verdad = userinfo; degradación suave si falla.
+        profile = await fetch_google_userinfo(google_token) or {}
+        given_name = profile.get("given_name") or info.get("given_name")
+        family_name = profile.get("family_name") or info.get("family_name")
+        picture = profile.get("picture")
 
         provider = await AuthProviderRepository(self.db).get_by_name("google")
         if provider is None:
@@ -71,6 +77,14 @@ class AuthService:
 
         if identity is not None:
             user = await self.db.get(User, identity.user_id)
+            if user is not None:
+                # Refrescar perfil en cada login (la URL de la foto cambia si el usuario la cambia).
+                user.email = info.get("email") or user.email
+                user.name = given_name or user.name
+                user.lastname = family_name or user.lastname
+                user.picture_url = picture or user.picture_url
+                user.email_verified = info.get("email_verified", user.email_verified)
+                await self.db.flush()
         else:
             # Create user + identity
             repo = UserRepository(self.db)
@@ -78,8 +92,9 @@ class AuthService:
                 email=info.get("email"),
                 password_hash=None,
                 email_verified=True,
-                name=info.get("given_name"),
-                lastname=info.get("family_name"),
+                name=given_name,
+                lastname=family_name,
+                picture_url=picture,
             )
             id_repo = UserIdentityRepository(self.db)
             await id_repo.create(

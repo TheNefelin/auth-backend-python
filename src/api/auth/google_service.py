@@ -51,3 +51,24 @@ async def verify_google_token(token: str) -> dict | None:
         return None
 
     return data
+
+
+async def fetch_google_userinfo(token: str) -> dict | None:
+    """Obtiene el perfil del usuario autenticado (name, given_name, family_name, picture).
+
+    Se llama DESPUÉS de verificar el token. Devuelve None si falla (degradación suave:
+    el login puede completarse igualmente con los datos de tokeninfo).
+    """
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
+            response = await client.get(
+                settings.GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    except httpx.HTTPError:
+        return None
+
+    if response.status_code != 200:
+        return None
+
+    return response.json()

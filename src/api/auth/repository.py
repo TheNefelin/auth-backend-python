@@ -28,7 +28,7 @@ class UserRepository:
         return await self.db.get(User, user_id)
 
     async def create(self, email: str, password_hash: "str | None", email_verified: bool,
-                     name: "str | None", lastname: "str | None") -> "User":
+                     name: "str | None", lastname: "str | None", picture_url: "str | None" = None) -> "User":
         """Create new user con rol y status por defecto del seed (user / activo)."""
         role = (await self.db.execute(select(UserRole).where(UserRole.name == "user"))).scalar_one_or_none()
         if role is None:
@@ -43,6 +43,7 @@ class UserRepository:
             email_verified=email_verified,
             name=name,
             lastname=lastname,
+            picture_url=picture_url,
             user_role_id=role.id,
             status_id=status.id,
         )
