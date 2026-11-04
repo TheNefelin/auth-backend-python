@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.core.dependencies import get_db, get_current_user
+from src.core.dependencies import get_db, require_user
 from src.schemas import dtos
 from . import service
 
@@ -26,13 +26,13 @@ async def refresh(refresh_token: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/logout")
-async def logout(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def logout(user=Depends(require_user), db: AsyncSession = Depends(get_db)):
     svc = service.AuthService(db)
     return await svc.logout(user["id"])
 
 
 @router.get("/me", response_model=dtos.UserProfile)
-async def me(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def me(user=Depends(require_user), db: AsyncSession = Depends(get_db)):
     svc = service.AuthService(db)
     return await svc.get_profile(user["id"])
 
