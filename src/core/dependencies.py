@@ -9,12 +9,13 @@ from typing import AsyncGenerator
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .database import get_async_session, AsyncSessionLocal
 from .security import decode_access_token
 from .config import settings
-from ..models import User
+from ..models import User, UserRole, UserStatus
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -84,7 +85,44 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return {"id": str(result.id), "email": result.email, "name": result.name}
+    role = (
+        await db.execute(select(UserRole).where(UserRole.id == result.user_role_id))
+    ).scalar_one_or_none()
+    user_status = (
+        await db.execute(select(UserStatus).where(UserStatus.id == result.status_id))
+    ).scalar_one_or_none()
+
+    role_name = role.name if role else "user"
+    status_name = user_status.name if user_status else None
+
+    return {
+        "id": str(result.id),
+        "email": result.email,
+        "name": result.name,
+        "role": role_name,
+        "status": status_name,
+        "is_active": status_name == "activo" if status_name else False,
+    }
+
+
+async def require_user(user: dict = Depends(get_current_user)) -> dict:
+    """Cualquier usuario válido (rol 'user' o 'admin')."""
+    if user.get("role") not in ("user", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient privileges",
+        )
+    return user
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Solo rol 'admin'."""
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required",
+        )
+    return user
 
 
 def get_rate_limit_dependencies(
