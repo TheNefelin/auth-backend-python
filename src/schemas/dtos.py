@@ -132,6 +132,7 @@ class UserProfile(BaseModel):
     is_active: bool = True
     role: Optional[str] = None
     status: Optional[str] = None
+    provider: Optional[str] = None
 
     class Config:
         from_attributes = True

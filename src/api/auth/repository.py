@@ -107,6 +107,10 @@ class AuthProviderRepository:
         result = await self.db.execute(select(AuthProvider).where(AuthProvider.name == name))
         return result.scalar_one_or_none()
 
+    async def get_by_id(self, provider_id: int) -> "AuthProvider | None":
+        """Get provider by ID."""
+        return await self.db.get(AuthProvider, provider_id)
+
     async def create(self, name: str, display_name: "str | None", is_active: bool) -> "AuthProvider":
         """Create new auth provider."""
         from sqlalchemy import func

@@ -132,6 +132,8 @@ class AuthService:
 
         role = await UserRoleRepository(self.db).get_by_id(user.user_role_id)
         status = await UserStatusRepository(self.db).get_by_id(user.status_id)
+        identity = await UserIdentityRepository(self.db).get_primary_by_user(user.id)
+        provider = await AuthProviderRepository(self.db).get_by_id(identity.provider_id) if identity else None
 
         return UserProfile(
             id=str(user.id),
@@ -143,6 +145,7 @@ class AuthService:
             is_active=(status.name == "activo") if status else False,
             role=role.name if role else None,
             status=status.name if status else None,
+            provider=provider.name if provider else None,
         )
 
     async def refresh_token(self, refresh_token: str) -> dict:
