@@ -2,6 +2,39 @@
 
 Siempre presente en cualquier API: se reutiliza en todos los proyectos. Componentes:
 
+### 8.0 Hashing de contraseñas — usar `pwdlib`, NO `passlib`
+
+> **⚠️ `passlib` está sin mantenimiento (último release 2020) y está ROTO con `bcrypt` ≥ 4.1** (intenta leer `bcrypt.__about__`, eliminado en bcrypt 4.1+, y falla con `ValueError`/`MissingBackendError` incluso con contraseñas cortas). El reemplazo oficial y mantenido —y el que usa la documentación actual de FastAPI— es **`pwdlib`**.
+
+```python
+# src/core/security.py
+from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
+
+# bcrypt explícito; para argon2id: PasswordHash.recommended() + pwdlib[argon2]
+pwd_context = PasswordHash((BcryptHasher(),))
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+```
+
+- **Dependencia:** `pwdlib[bcrypt]` + `bcrypt` (o `pwdlib[argon2]` si se prefiere argon2id).
+- `pwdlib` soporta **rotación de algoritmo** (`verify_and_update`): útil para migrar hashes viejos sin forzar re-login.
+- Cambiar de `passlib` a `pwdlib` **invalida los hashes viejos**; solo migrar con lógica de rehash o si aún no hay usuarios con password.
+
+### 8.0.1 Roles: el enum es el CONTRATO, la BD es el catálogo
+
+Un error común es tener roles en la BD que el código no "conoce" (o al revés): si alguien cambia `'admin'` → `'Admins'` en `user_roles`, el `require_admin` del código deja de pasar y **todos los admins quedan fuera en silencio**.
+
+Dos mitigaciones (usar según criticidad):
+1. **Enum en código como contrato** (`core/roles.py`): `class UserRole(str, Enum): ADMIN = "admin"; USER = "user"`. El código nunca usa strings mágicos (`"admin"`), y el seed del DDL usa **los mismos valores**.
+2. **Validación al arranque (recomendada)**: comprobar que los roles del enum existan en `user_roles`; si no, **abortar el arranque** (`lifespan`) en vez de fallar silenciosamente. Convierte un fallo silencioso (usuario no entra, nadie sabe por qué) en uno ruidoso y claro.
+
+> **Cuándo migrar a permisos (patrón escalable):** si los roles deben crearse **sin deploy** (dinámicos), separar **roles (datos, tabla)** de **permisos (código, enum)** con una tabla `role_permissions`: el código pregunta `user.can("users.delete")`, nunca `role == "admin"`. Es más complejo; solo vale si de verdad hay roles dinámicos, no para un `admin`/`user` fijo.
+
 ### 8.1 `src/core/security.py` — JWT identifica, el rol se lee de la BD
 
 **Punto clave**: el rol embebido en el token es una *pista*, no una autoridad. En cada request protegido se lee el rol real del usuario desde la BD (`users_service.get_role_name_by_id`): un cambio de rol, una baja de usuario o un refresh de permisos se refleja al instante, sin esperar que expire el token (2h).
@@ -180,7 +213,22 @@ async def refresh_session(db, refresh_token):
 > **Refresh token — decisión explícita de seguridad y concurrencia**:
 > - **Almacenar el hash** (`sha256(token)`), nunca el token en claro; declarar `UNIQUE` sobre esa columna.
 > - **Rotación de un solo uso y atómica**: la revocación debe ser condicional (`UPDATE … WHERE revoked = false`); si afecta 0 filas, rechazar.
-> - **Detección de reuso**: si llega un token ya revocado, revocar toda la familia de sesiones del usuario (posible robo).
+> - **Detección de reuso**: si llega un token ya revocado, revocar toda la familia de sesiones del usuario (posible robo). *Trade-off conocido*: un atacante con tokens viejos podría forzar logout del usuario legítimo (DoS); se acepta porque prioriza la protección contra robo (patrón Auth0).
+> - **Expiración absoluta + idle timeout (recomendado)**: la sesión caduca como máximo en `expires_at` (fijo desde el login) **y además** por inactividad, con una columna `last_used_at` que se actualiza en cada uso. Sin idle timeout, un refresh robado puede permanecer válido todo el techo absoluto aunque el usuario real ya no use la app.
+>
+>   ```python
+>   now = datetime.now(tz=timezone.utc)
+>   if session.expires_at <= now:
+>     await session_repository.revoke(db, session)          # techo absoluto
+>     raise UnauthorizedError("Refresh token has expired")
+>   if session.last_used_at <= now - timedelta(minutes=REFRESH_IDLE_MINUTES):
+>     await session_repository.revoke(db, session)          # inactividad
+>     raise UnauthorizedError("Session expired due to inactivity")
+>   if not await session_repository.revoke_if_active(db, session.id):  # reuso concurrente
+>     await session_repository.revoke_all_for_user(db, session.user_id)
+>     raise UnauthorizedError("Refresh token reuse detected; sessions revoked")
+>   ```
+>   El `expires_at` de la rotación **conserva** el techo absoluto original (no se extiende en cada refresh); solo el login fija uno nuevo.
 
 ### 8.4 Endpoints de usuario autenticado
 
