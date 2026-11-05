@@ -7,7 +7,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from ...core.database import get_db
-from ...core.security import create_access_token, generate_refresh_token, verify_password
+from ...core.security import (
+    create_access_token,
+    generate_refresh_token,
+    get_password_hash,
+    verify_password,
+)
 from ...core.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from ...core.config import settings
 from ...schemas.dtos import UserLogin, UserRegister, UserProfile, Token, UserProfile
@@ -107,30 +112,40 @@ class AuthService:
         return await self._issue_tokens(user.id)
 
     async def register(self, user_data: UserRegister) -> dict:
-        """Register new user."""
+        """Registra un usuario local (email + contraseña) y hace auto-login.
+
+        No hay merge por email (evita account takeover): si el email ya existe
+        (p. ej. una cuenta creada con Google), se devuelve conflicto.
+        """
         repo = UserRepository(self.db)
 
-        # Check if user already exists
         existing = await repo.get_by_email(user_data.email)
         if existing:
-            raise ConflictError("Email already registered")
+            raise ConflictError("El email ya está registrado")
 
-        # Create user
+        provider = await AuthProviderRepository(self.db).get_by_name("local")
+        if provider is None:
+            raise RuntimeError("Seed faltante: no existe el auth_provider 'local'")
+
         user = await repo.create(
             email=user_data.email,
-            password_hash=None,  # Will be set after verification
+            password_hash=get_password_hash(user_data.password),
             email_verified=False,
             name=user_data.name,
             lastname=user_data.lastname,
         )
 
-        return {
-            "id": str(user.id),
-            "email": user.email,
-            "name": user.name,
-            "lastname": user.lastname,
-            "registered": True,
-        }
+        # Identidad local primaria (coherente con el modelo: un usuario local
+        # debe tener su fila en user_identities).
+        await UserIdentityRepository(self.db).create(
+            user_id=user.id,
+            provider_id=provider.id,
+            provider_user_id=user_data.email,
+            email=user_data.email,
+            is_primary=True,
+        )
+
+        return await self._issue_tokens(user.id)
 
     async def get_profile(self, user_id: str) -> UserProfile:
         """Get user profile."""

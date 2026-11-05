@@ -16,7 +16,7 @@ async def login(request: Request, data: dtos.UserLogin, db: AsyncSession = Depen
     return await svc.login(data)
 
 
-@router.post("/register")
+@router.post("/register", response_model=dtos.Token)
 @limiter.limit("10/minute")
 async def register(request: Request, data: dtos.UserRegister, db: AsyncSession = Depends(get_db)):
     svc = service.AuthService(db)

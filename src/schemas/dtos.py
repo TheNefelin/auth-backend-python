@@ -5,8 +5,11 @@ Data transfer objects for API requests and responses (Pydantic V2).
 
 from datetime import datetime, timezone
 from typing import Optional
+import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 # ========== Auth Schemas ==========
@@ -15,19 +18,25 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
+
 
 class UserRegister(BaseModel):
     email: str
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
     name: Optional[str] = None
     lastname: Optional[str] = None
 
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
-        if "@" not in v:
+        v = v.strip().lower()
+        if not _EMAIL_RE.match(v):
             raise ValueError("Formato de email inválido")
-        return v.lower()
+        return v
 
 
 class AuthGoogleRequest(BaseModel):
