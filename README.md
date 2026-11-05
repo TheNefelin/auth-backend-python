@@ -77,7 +77,7 @@ py -m venv .venv
 #    Al activarlo, el prompt debe mostrar (.venv)
 
 # 4. Instalar paquetes del backend (con el venv activo)
-pip install fastapi uvicorn sqlalchemy pwdlib[bcrypt] bcrypt python-jose[cryptography] pydantic python-dotenv httpx fastapi-problem rfc9457
+pip install fastapi uvicorn sqlalchemy pwdlib[bcrypt] bcrypt python-jose[cryptography] pydantic python-dotenv httpx fastapi-problem rfc9457 slowapi
 
 # 4.1 Instalar dependencias de testing (solo desarrollo)
 pip install pytest pytest-asyncio

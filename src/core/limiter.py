@@ -1,63 +1,29 @@
-"""Rate limiter module for the Auth Unificado backend.
+"""Rate limiter (slowapi).
 
-Provides rate limiting functionality for API endpoints.
+Clave por identidad: si el request trae JWT, el límite es POR USUARIO
+(`user:{id}`); si no, por IP. Así un abuso no castiga a todos los usuarios
+detrás de la misma IP, ni un usuario puede evadir el límite cambiando de IP.
 """
 
-import time
-from collections import defaultdict
-from typing import defaultdict as _defaultdict
+from fastapi import Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from .security import decode_access_token
 
 
-# In-memory rate limiter (for production, use Redis or dedicated service)
-_rate_limits: _defaultdict[str, list] = _defaultdict(list)
+def rate_limit_key(request: Request) -> str:
+    """Identidad del límite: usuario (si hay JWT válido) o IP."""
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        try:
+            payload = decode_access_token(auth_header.split(" ", 1)[1])
+            user_id = payload.get("sub")
+            if user_id:
+                return f"user:{user_id}"
+        except Exception:
+            pass
+    return get_remote_address(request)
 
 
-class RateLimitExceeded(HTTPException):
-    """Raised when rate limit is exceeded."""
-    
-    def __init__(self, retry_after: int = 60):
-        super().__init__(
-            status_code=429,
-            detail="Rate limit exceeded",
-        )
-        self.retry_after = retry_after
-
-
-def check_rate_limit(
-    identifier: str,
-    requests_per_minute: int = 60,
-    requests_per_hour: int = 1000,
-) -> bool:
-    """Check if the identifier is within rate limits.
-    
-    Returns True if within limits, False if exceeded.
-    """
-    now = time.time()
-    minute_ago = now - 60
-    hour_ago = now - 3600
-    
-    # Clean old entries
-    _rate_limits[identifier] = [
-        timestamp for timestamp in _rate_limits[identifier]
-        if timestamp > minute_ago
-    ]
-    _rate_limits[f"{identifier}:hour"] = [
-        timestamp for timestamp in _rate_limits[f"{identifier}:hour"]
-        if timestamp > hour_ago
-    ]
-    
-    # Check minute limit
-    minute_count = len(_rate_limits[identifier])
-    if minute_count >= requests_per_minute:
-        return False
-    
-    # Check hour limit
-    hour_count = len(_rate_limits[f"{identifier}:hour"])
-    if hour_count >= requests_per_hour:
-        return False
-    
-    # Record current request
-    _rate_limits[identifier].append(now)
-    _rate_limits[f"{identifier}:hour"].append(now)
-    
-    return True
+limiter = Limiter(key_func=rate_limit_key, default_limits=["100/minute"])

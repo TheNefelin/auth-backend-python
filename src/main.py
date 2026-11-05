@@ -1,11 +1,15 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_problem.handler import add_exception_handler, new_exception_handler
-from rfc9457 import ServerProblem, UnprocessableProblem
+from rfc9457 import BadRequestProblem, ServerProblem, UnprocessableProblem
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from starlette.responses import JSONResponse
 
 from src.core.config import settings
+from src.core.limiter import limiter
 from src.core.startup import assert_roles_consistent
 from src.api.auth.routes import router as auth_router
 
@@ -35,6 +39,10 @@ app.add_middleware(
   allow_headers=["*"],
 )
 
+# Rate limiting (slowapi), clave por identidad (usuario/IP) — ver core/limiter.py
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
 
 # PROBLEM HANDLERS (respuestas RFC 9457 / Problem Details) --------------
 class RequestValidationProblem(UnprocessableProblem):
@@ -54,6 +62,16 @@ class InternalServerErrorProblem(ServerProblem):
     super().__init__(detail="Internal server error", **kwargs)
 
 
+class RateLimitProblem(BadRequestProblem):
+  type_ = "rate-limit-exceeded"
+  title = "Rate limit exceeded."
+  status = 429
+
+
+def rate_limit_handler(eh, request: Request, exc: RateLimitExceeded):
+  return RateLimitProblem(detail=f"Rate limit exceeded: {exc.detail}")
+
+
 # Handler global: convierte AppError/excepciones semánticas, HTTPException y
 # errores de validación a un único formato {type, title, status, detail}.
 eh = new_exception_handler(
@@ -61,8 +79,10 @@ eh = new_exception_handler(
     "422": RequestValidationProblem,
     "500": InternalServerErrorProblem,
   },
+  handlers={RateLimitExceeded: rate_limit_handler},
 )
 add_exception_handler(app, eh)
+app.add_exception_handler(RateLimitExceeded, eh)
 
 
 @app.get("/health")
