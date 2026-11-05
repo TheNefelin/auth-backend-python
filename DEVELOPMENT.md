@@ -18,13 +18,14 @@ Backend de autenticación transversal que soporta:
 
 | Capa | Tecnología | Estado |
 |------|-----------|--------|
-| Lenguaje | Python 3.12+ | Planificado |
-| Framework | FastAPI | MVP (por implementar) |
-| ORM / DB | SQLAlchemy 2.1 (async) + PostgreSQL | MVP (por implementar) |
-| Auth | JWT (HS256) + Refresh token rotation | Planificado |
-| MFA | TOTP (RFC 6238) + códigos de recuperación | Planificado |
-| Tests | pytest | Planificado |
-| Variables de entorno | pydantic-settings | Planificado |
+| Lenguaje | Python 3.14 (venv `.venv`) | En uso |
+| Framework | FastAPI | Google funcional |
+| ORM / DB | SQLAlchemy 2.1 (async) + PostgreSQL | En uso |
+| Auth | JWT (HS256) + refresh rotativo con idle timeout | Implementado |
+| Hashing | `pwdlib` + `bcrypt` | Implementado (passlib eliminado) |
+| MFA | TOTP (RFC 6238) | Planificado |
+| Tests | pytest (unitarios, sin BD) | 31/31 |
+| Config | `.env` cargado con python-dotenv (clase propia) | En uso |
 
 ---
 
@@ -63,28 +64,29 @@ backend-python/
 
 ## 4. Decisiones de diseño (aceptadas)
 
-| Decisión | Justificación |
-|----------|---------------|
-| Tabla `users` sin `auth_provider` ni `google_sub` | Evitar redundancia; el proveedor se deriva de `user_identities`. |
-| Tabla `user_identities` para proveedores federados | Permite múltiples proveedores por usuario. |
-| `ON DELETE RESTRICT` en FKs de `users` | Evitar borrado en cascada. Soft delete con `deleted_at`. |
-| `client_id` y URLs de endpoints en `.env` | Configuración de la aplicación, no datos de negocio. |
-| MFA/2FA con TOTP | Estándar de la industria (RFC 6238). Sin servicios externos. |
-| No merge automático por email | Previene *account takeover*. Vinculación solo vía `/auth/connect` autenticada. |
+| Decisión | Justificación | Estado |
+|----------|---------------|--------|
+| Tabla `users` sin `auth_provider` ni `google_sub` | Evitar redundancia; el proveedor se deriva de `user_identities`. | Aceptado |
+| `user_identities` para proveedores federados (`provider_id` INT FK al catálogo) | Permite múltiples proveedores por usuario. | Aceptado |
+| `ON DELETE RESTRICT` en FKs de `users` | Evitar borrado en cascada. Soft delete con `deleted_at`. | Aceptado |
+| `client_id` y URLs de endpoints en `.env` | Configuración, no datos de negocio. | Aceptado |
+| `get_db()` hace commit/rollback por request | Antes nada persistía; atómico para user + identity. | Aceptado |
+| Refresh token: hash SHA-256, rotación, expiración absoluta + idle timeout | Nunca se guarda el token en claro; la sesión no es eterna. | Aceptado |
+| Hashing con `pwdlib[bcrypt]` | passlib está abandonado e incompatible con bcrypt ≥4.1. | Aceptado |
+| `require_user`/`require_admin` leen el rol de la BD | El token identifica; el permiso se resuelve en servidor. | Aceptado |
+| No merge automático por email | Previene *account takeover*. Vinculación explícita (futuro `/auth/connect`). | Aceptado |
 
 ---
 
-## 5. Pendientes (out of scope actual)
+## 5. Pendientes
 
-- [ ] Implementar backend FastAPI funcional (endpoints `/auth/login`, `/auth/google`, `/auth/github`, `/auth/apple`, `/auth/refresh`, `/auth/logout`, `/auth/connect`, `DELETE /auth/unlink/{provider}`).
-- [ ] Configurar `GOOGLE_CLIENT_ID` real en `.env`.
-- [ ] Crear base de datos PostgreSQL y ejecutar `schema_auth.sql`.
-- [ ] Implementar cambio de correo y cambio de contraseña (`PUT /users/email`, `PUT /users/password`).
-- [ ] Implementar flujo "olvidé contraseña".
-- [ ] Activar proveedores GitHub y Apple (`is_active = TRUE` en `auth_providers` + endpoints).
-- [ ] Implementar MFA/2FA (TOTP + códigos de recuperación).
-- [ ] Agregar protección brute-force (lockout de cuenta).
-- [ ] Agregar validación de complejidad de contraseña.
+- [ ] `/auth/login` y `/auth/register` (email+contraseña): lógica parcial, sin verificar.
+- [ ] GitHub y Apple (stubs; replicar el patrón de Google).
+- [ ] Detección de reuso del refresh token (revocar la familia).
+- [ ] Rate limiting en login; API Key global (`verify_api_key_header`).
+- [ ] MFA/2FA (TOTP + códigos de recuperación).
+- [ ] Cambio de correo/contraseña, flujo "olvidé contraseña", brute-force, `/auth/connect` + `/auth/unlink`.
+- [ ] Deuda: `@validator`→`@field_validator` (Pydantic V2), `declarative_base`→`orm.declarative_base`, `ValidationException.super__` (typo), `.env.demo` (`DEBUG`/`API_KEY` sin consumidor).
 
 ---
 
