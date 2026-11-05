@@ -204,6 +204,24 @@ class UserSessionRepository:
         session.is_revoked = True
         await self.db.flush()
 
+    async def revoke_if_active(self, session_id: uuid.UUID) -> bool:
+        """Revoca la sesión solo si seguía activa (revocación atómica).
+
+        Devuelve True si afectó una fila (la revocó), False si ya estaba
+        revocada (otra petición la usó antes → posible reuso).
+        """
+        from sqlalchemy import update
+
+        from ...models import UserSession as US
+
+        result = await self.db.execute(
+            update(US)
+            .where(US.id == session_id, US.is_revoked == False)  # noqa: E712
+            .values(is_revoked=True)
+        )
+        await self.db.flush()
+        return result.rowcount == 1
+
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
         """Revoca todas las sesiones activas del usuario (logout global)."""
         from ...models import UserSession as US

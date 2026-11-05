@@ -167,18 +167,28 @@ class AuthService:
         """Rota el refresh token y emite un nuevo par access/refresh.
 
         Reglas:
-        - El refresh debe existir (por hash), no estar revocado, y no haber
-          superado la expiración ABSOLUTA (`expires_at`).
+        - El refresh debe existir (por hash) y no haber superado la expiración
+          ABSOLUTA (`expires_at`).
         - IDLE timeout: si `last_used_at` supera el umbral de inactividad,
           la sesión se revoca y se rechaza.
-        - Rotación: el token usado se revoca y se emite uno nuevo con la
-          MISMA expiración absoluta (no se extiende el techo de la sesión).
+        - Detección de reuso: si el token ya estaba revocado, se revoca toda
+          la familia de sesiones del usuario (posible robo).
+        - Rotación ATÓMICA: el token usado se revoca condicionalmente; si otra
+          petición concurrente ganó la carrera, se trata como reuso.
+        - El nuevo par conserva la expiración absoluta (no extiende el techo).
         """
         repo = UserSessionRepository(self.db)
         session = await repo.get_by_refresh_token(refresh_token)
 
-        if not session or session.is_revoked:
-            raise UnauthorizedError("Invalid or revoked refresh token")
+        if session is None:
+            raise UnauthorizedError("Invalid refresh token")
+
+        # Detección de reuso: un token ya revocado que reaparece indica robo
+        # (el usuario legítimo ya lo rotó). Se revoca toda la familia de
+        # sesiones del usuario para neutralizar también al atacante.
+        if session.is_revoked:
+            await repo.revoke_all_for_user(session.user_id)
+            raise UnauthorizedError("Refresh token reuse detected; sessions revoked")
 
         now = datetime.now(timezone.utc)
 
@@ -197,8 +207,12 @@ class AuthService:
         if not user or not user.can_authenticate():
             raise ForbiddenError("User not found or disabled")
 
-        # Rotación: revoca el token usado y emite uno nuevo conservando el techo absoluto.
-        await repo.revoke(session)
+        # Rotación atómica: revoca el token usado solo si seguía activo. Si otra
+        # petición concurrente ya lo revocó, se trata como reuso (no se emite par).
+        if not await repo.revoke_if_active(session.id):
+            await repo.revoke_all_for_user(session.user_id)
+            raise UnauthorizedError("Refresh token reuse detected; sessions revoked")
+
         return await self._issue_tokens(user.id, expires_at=session.expires_at)
 
     async def logout(self, user_id: str) -> dict:
