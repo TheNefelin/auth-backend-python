@@ -1,7 +1,7 @@
 """Base model class for SQLAlchemy ORM."""
 
 from sqlalchemy import MetaData
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 
 # Naming convention for indexes and constraints
 # This helps avoid conflicts and makes migrations more predictable
@@ -13,4 +13,8 @@ naming_convention = {
     "pk": "pk_%(table_name)s",
 }
 
-Base = declarative_base(metadata=MetaData(naming_convention=naming_convention))
+
+class Base(DeclarativeBase):
+    """Base declarativa con convención de nombres (SQLAlchemy 2.0)."""
+
+    metadata = MetaData(naming_convention=naming_convention)

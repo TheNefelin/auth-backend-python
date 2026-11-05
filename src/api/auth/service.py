@@ -33,16 +33,11 @@ class AuthService:
         if not verify_password(credentials.password, user.password_hash):  # type: ignore
             raise UnauthorizedError("Invalid email or password")
 
-        if not user.is_active:  # type: ignore
+        status = await UserStatusRepository(self.db).get_by_id(user.status_id)
+        if status is None or status.name != "activo":
             raise ForbiddenError("Account is disabled")
 
-        access_token = create_access_token(subject=str(user.id))
-
-        return {
-            "access_token": access_token,
-            "expires_in": 900,
-            "token_type": "bearer",
-        }
+        return await self._issue_tokens(user.id)
 
     async def google_login(self, google_token: str) -> dict:
         from sqlalchemy import select
