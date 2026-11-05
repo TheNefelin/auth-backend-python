@@ -73,6 +73,9 @@ class Settings:
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
     RATE_LIMIT_PER_HOUR: int = int(os.getenv("RATE_LIMIT_PER_HOUR", "1000"))
 
+    # API Key global (header X-API-Key)
+    API_KEY: str = os.getenv("API_KEY", "")
+
     # CORS
     CORS_ORIGINS: list[str] = _parse_cors_origins()
 

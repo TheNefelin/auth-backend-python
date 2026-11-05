@@ -1,19 +1,29 @@
 """Security module for the Auth Unificado backend.
 
-Handles JWT token creation, validation, and password hashing.
+Handles JWT token creation/validation, password hashing, and the
+authentication/authorization dependencies (get_current_user, require_*).
 """
 
 import hashlib
 import json
 import base64
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt, JWTError
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
+from .database import get_db
+from .exceptions import ForbiddenError, UnauthorizedError
+from .roles import UserRole
+from ..models import User, UserRole as UserRoleModel, UserStatus
 
 
 # Password hashing (pwdlib: recomendado; passlib está sin mantenimiento y
@@ -86,3 +96,68 @@ def generate_refresh_token() -> str:
 def hash_refresh_token(token: str) -> str:
     """SHA-256 del refresh token. La BD guarda solo el hash, nunca el token."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+# --- Autenticación / autorización (dependencias FastAPI) --------------------
+
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_current_user(
+    db: AsyncSession = Depends(get_db),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> dict:
+    """Resuelve el usuario autenticado desde el JWT (lee el rol real de la BD)."""
+    if credentials is None:
+        raise UnauthorizedError("Authentication header missing or invalid")
+
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except ValueError:
+        raise UnauthorizedError("Invalid or expired token") from None
+
+    user_id: str | None = payload.get("sub")
+    if user_id is None:
+        raise UnauthorizedError("Invalid authentication payload")
+
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise UnauthorizedError("Invalid user identifier")
+
+    result = await db.get(User, user_uuid)
+    if result is None:
+        raise UnauthorizedError("User not found")
+
+    role = (
+        await db.execute(select(UserRoleModel).where(UserRoleModel.id == result.user_role_id))
+    ).scalar_one_or_none()
+    user_status = (
+        await db.execute(select(UserStatus).where(UserStatus.id == result.status_id))
+    ).scalar_one_or_none()
+
+    role_name = role.name if role else UserRole.USER.value
+    status_name = user_status.name if user_status else None
+
+    return {
+        "id": str(result.id),
+        "email": result.email,
+        "name": result.name,
+        "role": role_name,
+        "status": status_name,
+        "is_active": status_name == "activo" if status_name else False,
+    }
+
+
+async def require_user(user: dict = Depends(get_current_user)) -> dict:
+    """Cualquier usuario válido (rol 'admin' o 'user')."""
+    if user.get("role") not in (UserRole.ADMIN.value, UserRole.USER.value):
+        raise ForbiddenError("Insufficient privileges")
+    return user
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    """Solo rol 'admin'."""
+    if user.get("role") != UserRole.ADMIN.value:
+        raise ForbiddenError("Admin role required")
+    return user

@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.core.dependencies import require_admin, require_user
+from src.core.security import require_admin, require_user
 from src.core.exceptions import ForbiddenError
 
 

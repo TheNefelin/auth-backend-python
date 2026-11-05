@@ -1,10 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_problem.handler import add_exception_handler, new_exception_handler
 from rfc9457 import ServerProblem, UnprocessableProblem
 
 from src.core.config import settings
+from src.core.startup import assert_roles_consistent
 from src.api.auth.routes import router as auth_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Valida al arrancar que los roles del enum existan en la BD (falla temprano).
+    await assert_roles_consistent()
+    yield
+
 
 app = FastAPI(
   title=settings.APP_NAME,
@@ -12,6 +23,7 @@ app = FastAPI(
   version=settings.APP_VERSION,
   docs_url="/docs",
   redoc_url="/redoc",
+  lifespan=lifespan,
 )
 
 # Configurar CORS para permitir peticiones desde el frontend

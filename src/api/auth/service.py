@@ -6,7 +6,7 @@ Contains business logic for authentication operations.
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from ...core.dependencies import get_db
+from ...core.database import get_db
 from ...core.security import create_access_token, generate_refresh_token, verify_password
 from ...core.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from ...core.config import settings

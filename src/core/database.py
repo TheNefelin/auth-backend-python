@@ -1,19 +1,20 @@
 """Database module for the Auth Unificado backend.
 
-Provides SQLAlchemy async engine and session configuration.
+Provides SQLAlchemy async engine, session configuration and the `get_db`
+dependency (una transacción por request).
 """
 
-import os
+from typing import AsyncGenerator
 
-from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
 
 
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
+
     pass
 
 
@@ -34,17 +35,17 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-def get_async_session():
-    """Dependency to get an async database session."""
-    import asyncio
-    
-    async def _get_session() -> AsyncSession:
-        async with AsyncSessionLocal() as session:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency de sesión de BD: una transacción por request.
+
+    El repository solo hace `flush()`. Aquí se hace commit al final de la
+    request (persiste lo flusheado) y rollback si hubo una excepción, para
+    que la request sea atómica (p. ej. usuario + identidad juntos o ninguno).
+    """
+    async with AsyncSessionLocal() as session:
+        try:
             yield session
-    
-    return _get_session
-
-
-async def get_async_engine():
-    """Get the async engine instance."""
-    return async_engine
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

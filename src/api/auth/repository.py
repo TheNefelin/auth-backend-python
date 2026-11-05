@@ -9,7 +9,6 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import User, UserRole, UserStatus, AuthProvider
-from ...core.database import get_async_session, AsyncSessionLocal
 
 class UserRepository:
     """Repository for User entity."""
