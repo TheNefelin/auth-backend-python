@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_problem.handler import add_exception_handler, new_exception_handler
+from rfc9457 import ServerProblem, UnprocessableProblem
+
 from src.core.config import settings
 from src.api.auth.routes import router as auth_router
 
@@ -19,6 +22,36 @@ app.add_middleware(
   allow_methods=["*"],
   allow_headers=["*"],
 )
+
+
+# PROBLEM HANDLERS (respuestas RFC 9457 / Problem Details) --------------
+class RequestValidationProblem(UnprocessableProblem):
+  type_ = "request-validation-failed"
+  title = "Request validation error."
+
+  def __init__(self, errors=None, **kwargs):
+    super().__init__(errors=errors, **kwargs)
+    self.detail = "; ".join(str(e.get("msg", "")) for e in errors) if errors else self.title
+
+
+class InternalServerErrorProblem(ServerProblem):
+  type_ = "internal-server-error"
+  title = "Internal server error."
+
+  def __init__(self, detail=None, **kwargs):
+    super().__init__(detail="Internal server error", **kwargs)
+
+
+# Handler global: convierte AppError/excepciones semánticas, HTTPException y
+# errores de validación a un único formato {type, title, status, detail}.
+eh = new_exception_handler(
+  unhandled_wrappers={
+    "422": RequestValidationProblem,
+    "500": InternalServerErrorProblem,
+  },
+)
+add_exception_handler(app, eh)
+
 
 @app.get("/health")
 async def health_check():

@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from ...core.dependencies import get_db
 from ...core.security import create_access_token, generate_refresh_token, verify_password
-from ...core.exceptions import CredentialsException
+from ...core.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from ...core.config import settings
 from ...schemas.dtos import UserLogin, UserRegister, UserProfile, Token, UserProfile
 from ...models import User
@@ -28,13 +28,13 @@ class AuthService:
         user = await repo.get_by_email(credentials.email)
 
         if not user or not user.can_authenticate():
-            raise CredentialsException()
+            raise UnauthorizedError("Invalid email or password")
 
         if not verify_password(credentials.password, user.password_hash):  # type: ignore
-            raise CredentialsException()
+            raise UnauthorizedError("Invalid email or password")
 
         if not user.is_active:  # type: ignore
-            raise CredentialsException("Account is disabled")
+            raise ForbiddenError("Account is disabled")
 
         access_token = create_access_token(subject=str(user.id))
 
@@ -53,7 +53,7 @@ class AuthService:
 
         info = await verify_google_token(google_token)
         if not info:
-            raise CredentialsException("Invalid Google token")
+            raise UnauthorizedError("Invalid Google token")
 
         # Datos del perfil (nombre/imagen): source de verdad = userinfo; degradación suave si falla.
         profile = await fetch_google_userinfo(google_token) or {}
@@ -65,7 +65,7 @@ class AuthService:
         if provider is None:
             raise RuntimeError("Seed faltante: no existe el auth_provider 'google'")
         if not provider.is_active:
-            raise CredentialsException("Google login is disabled")
+            raise ForbiddenError("Google login is disabled")
 
         # Find existing identity by (provider, provider_user_id)
         result = await self.db.execute(
@@ -107,7 +107,7 @@ class AuthService:
             )
 
         if user is None or not user.can_authenticate():
-            raise CredentialsException("Account disabled")
+            raise ForbiddenError("Account disabled")
 
         return await self._issue_tokens(user.id)
 
@@ -118,7 +118,7 @@ class AuthService:
         # Check if user already exists
         existing = await repo.get_by_email(user_data.email)
         if existing:
-            raise CredentialsException("Email already registered")
+            raise ConflictError("Email already registered")
 
         # Create user
         user = await repo.create(
@@ -143,7 +143,7 @@ class AuthService:
         user = await repo.get_by_id(uuid.UUID(user_id))
 
         if not user:
-            raise CredentialsException("User not found")
+            raise NotFoundError("User")
 
         role = await UserRoleRepository(self.db).get_by_id(user.user_role_id)
         status = await UserStatusRepository(self.db).get_by_id(user.status_id)
@@ -178,24 +178,24 @@ class AuthService:
         session = await repo.get_by_refresh_token(refresh_token)
 
         if not session or session.is_revoked:
-            raise CredentialsException("Invalid or revoked refresh token")
+            raise UnauthorizedError("Invalid or revoked refresh token")
 
         now = datetime.now(timezone.utc)
 
         if session.expires_at <= now:
             await repo.revoke(session)
-            raise CredentialsException("Refresh token has expired")
+            raise UnauthorizedError("Refresh token has expired")
 
         idle_limit = timedelta(minutes=settings.JWT_REFRESH_IDLE_MINUTES)
         if session.last_used_at is not None and session.last_used_at <= now - idle_limit:
             await repo.revoke(session)
-            raise CredentialsException("Session expired due to inactivity")
+            raise UnauthorizedError("Session expired due to inactivity")
 
         from ...models import User as UserModel
         user = await self.db.get(UserModel, session.user_id)
 
         if not user or not user.can_authenticate():
-            raise CredentialsException("User not found or disabled")
+            raise ForbiddenError("User not found or disabled")
 
         # Rotación: revoca el token usado y emite uno nuevo conservando el techo absoluto.
         await repo.revoke(session)

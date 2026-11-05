@@ -7,14 +7,14 @@ current user retrieval, and rate limiting.
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .database import get_async_session, AsyncSessionLocal
+from .exceptions import ForbiddenError, UnauthorizedError
 from .security import decode_access_token
-from .config import settings
 from ..models import User, UserRole, UserStatus
 
 
@@ -44,46 +44,27 @@ async def get_current_user(
 ) -> dict:
     """Dependency to get the current authenticated user from JWT token."""
     if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication header missing or invalid",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise UnauthorizedError("Authentication header missing or invalid")
 
     try:
         payload = decode_access_token(credentials.credentials)
     except ValueError:
         # Token inválido/expirado/malformado: es 401, nunca 500.
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
+        raise UnauthorizedError("Invalid or expired token") from None
+
     user_id: str | None = payload.get("sub")
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication payload",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise UnauthorizedError("Invalid authentication payload")
 
     try:
         user_uuid = uuid.UUID(user_id)
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid user identifier",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise UnauthorizedError("Invalid user identifier")
 
     # Fetch user from database
     result = await db.get(User, user_uuid)
     if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise UnauthorizedError("User not found")
 
     role = (
         await db.execute(select(UserRole).where(UserRole.id == result.user_role_id))
@@ -108,31 +89,12 @@ async def get_current_user(
 async def require_user(user: dict = Depends(get_current_user)) -> dict:
     """Cualquier usuario válido (rol 'user' o 'admin')."""
     if user.get("role") not in ("user", "admin"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient privileges",
-        )
+        raise ForbiddenError("Insufficient privileges")
     return user
 
 
 async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     """Solo rol 'admin'."""
     if user.get("role") != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required",
-        )
+        raise ForbiddenError("Admin role required")
     return user
-
-
-def get_rate_limit_dependencies(
-    requests_per_minute: int = settings.RATE_LIMIT_PER_MINUTE,
-    requests_per_hour: int = settings.RATE_LIMIT_PER_HOUR,
-):
-    """Create rate limit dependencies for endpoints."""
-    # This is a placeholder - in production would use slowapi or similar
-    def rate_limit_check(request: Request) -> bool:
-        # Basic rate limiting check
-        return True
-    
-    return rate_limit_check

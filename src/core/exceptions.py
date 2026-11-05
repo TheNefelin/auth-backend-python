@@ -1,64 +1,77 @@
-"""Exceptions module for the Auth Unificado backend.
+"""Excepciones semánticas del backend (RFC 9457 / Problem Details).
 
-Custom exception classes for consistent error handling.
+Todas heredan de las clases de `rfc9457` y se serializan como
+`{type, title, status, detail}` mediante el handler global de `main.py`
+(`fastapi-problem`). Las reglas de negocio lanzan ESTAS excepciones,
+nunca `HTTPException`.
+
+Patrón basado en las referencias del autor (portfolio-python,
+game_guides_python, biblioteca-wallmapu-python).
 """
 
-from fastapi import HTTPException
+from fastapi import status
+from rfc9457 import (
+    BadRequestProblem,
+    ConflictProblem,
+    ForbiddenProblem,
+    NotFoundProblem,
+    Problem,
+    UnauthorisedProblem,
+)
 
 
-class AuthException(HTTPException):
-    """Base authentication exception."""
-    
-    def __init__(self, detail: str = "Authentication failed", status_code: int = 401):
-        super().__init__(status_code=status_code, detail=detail)
+class AppError(Problem):
+    """Error de negocio base (RFC 9457).
+
+    Se serializa como `{type, title, status, detail}` y el handler global de
+    `main.py` lo convierte a una respuesta `application/problem+json`.
+    """
+
+    def __init__(self, message: str, status_code: int = status.HTTP_400_BAD_REQUEST):
+        self.message = message
+        super().__init__(title=message, detail=message, status=status_code, type_="app-error")
 
 
-class UserNotFoundException(AuthException):
-    """Raised when a user is not found."""
-    
-    def __init__(self, user_id: str):
-        super().__init__(
-            detail=f"User with ID {user_id} not found",
-            status_code=404,
-        )
+class NotFoundError(NotFoundProblem):
+    type_ = "not-found"
+    title = "Resource not found."
+
+    def __init__(self, entity: str = "Recurso"):
+        super().__init__(detail=f"{entity} no encontrado")
+        self.message = self.detail
 
 
-class CredentialsException(AuthException):
-    """Raised when credentials are invalid."""
+class ConflictError(ConflictProblem):
+    type_ = "conflict"
+    title = "Resource conflict."
 
-    def __init__(self, detail: str = "Invalid email or password"):
-        super().__init__(
-            detail=detail,
-            status_code=401,
-        )
-
-
-class TokenExpiredException(AuthException):
-    """Raised when a JWT token has expired."""
-    
-    def __init__(self):
-        super().__init__(
-            detail="Token has expired",
-            status_code=401,
-        )
+    def __init__(self, message: str = "El recurso ya existe"):
+        super().__init__(detail=message)
+        self.message = message
 
 
-class TokenInvalidException(AuthException):
-    """Raised when a JWT token is invalid."""
-    
-    def __init__(self, detail: str = "Invalid token"):
-        super().__init__(detail=detail, status_code=401)
+class UnauthorizedError(UnauthorisedProblem):
+    type_ = "unauthorized"
+    title = "Unauthorized."
+
+    def __init__(self, message: str = "Token inválido o expirado"):
+        super().__init__(detail=message)
+        self.message = message
 
 
-class PermissionDeniedException(AuthException):
-    """Raised when a user doesn't have permission to access a resource."""
-    
-    def __init__(self, detail: str = "Permission denied"):
-        super().__init__(detail=detail, status_code=403)
+class ForbiddenError(ForbiddenProblem):
+    type_ = "forbidden"
+    title = "Forbidden."
+
+    def __init__(self, message: str = "No tienes permisos para realizar esta acción"):
+        super().__init__(detail=message)
+        self.message = message
 
 
-class ValidationException(HTTPException):
-    """Raised for validation errors."""
-    
-    def __init__(self, detail: str):
-        super__(status_code=422, detail=detail)
+class InvalidApiKeyError(UnauthorisedProblem):
+    type_ = "invalid-api-key"
+    title = "Invalid API key."
+
+    def __init__(self, message: str = "API Key inválida"):
+        super().__init__(detail=message)
+        self.message = message

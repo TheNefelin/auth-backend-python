@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.api.auth.service import AuthService
-from src.core.exceptions import CredentialsException
+from src.core.exceptions import UnauthorizedError
 
 
 def _service() -> AuthService:
@@ -27,13 +27,13 @@ class TestRefreshToken:
         with patch.object(AuthService, "_issue_tokens", new=AsyncMock()):
             with patch("src.api.auth.service.UserSessionRepository") as repo_cls:
                 repo_cls.return_value.get_by_refresh_token = AsyncMock(return_value=None)
-                with pytest.raises(CredentialsException):
+                with pytest.raises(UnauthorizedError):
                     await _service().refresh_token("token")
 
     async def test_sesion_revocada_rechaza(self):
         with patch("src.api.auth.service.UserSessionRepository") as repo_cls:
             repo_cls.return_value.get_by_refresh_token = AsyncMock(return_value=_session(revoked=True))
-            with pytest.raises(CredentialsException):
+            with pytest.raises(UnauthorizedError):
                 await _service().refresh_token("token")
 
     async def test_expiracion_absoluta_revoca_y_rechaza(self):
@@ -42,7 +42,7 @@ class TestRefreshToken:
             repo = repo_cls.return_value
             repo.get_by_refresh_token = AsyncMock(return_value=sess)
             repo.revoke = AsyncMock()
-            with pytest.raises(CredentialsException):
+            with pytest.raises(UnauthorizedError):
                 await _service().refresh_token("token")
             repo.revoke.assert_awaited_once_with(sess)
 
@@ -52,7 +52,7 @@ class TestRefreshToken:
             repo = repo_cls.return_value
             repo.get_by_refresh_token = AsyncMock(return_value=sess)
             repo.revoke = AsyncMock()
-            with pytest.raises(CredentialsException):
+            with pytest.raises(UnauthorizedError):
                 await _service().refresh_token("token")
             repo.revoke.assert_awaited_once_with(sess)
 
