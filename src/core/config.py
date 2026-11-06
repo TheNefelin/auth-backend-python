@@ -53,6 +53,8 @@ class Settings:
 
     # Database
     DATABASE_URL: str = _required("DATABASE_URL")
+    # BD de tests (opcional; solo la usan las pruebas de integración)
+    TEST_DATABASE_URL: str = os.getenv("TEST_DATABASE_URL", "")
 
     # JWT
     JWT_SECRET_KEY: str = _required("JWT_SECRET_KEY")
