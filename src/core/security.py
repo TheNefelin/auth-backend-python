@@ -11,7 +11,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt, JWTError
 from pwdlib import PasswordHash
@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .database import get_db
-from .exceptions import ForbiddenError, UnauthorizedError
+from .exceptions import ForbiddenError, InvalidApiKeyError, UnauthorizedError
 from .roles import UserRole
 from ..models import User, UserRole as UserRoleModel, UserStatus
 
@@ -161,3 +161,17 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") != UserRole.ADMIN.value:
         raise ForbiddenError("Admin role required")
     return user
+
+
+# --- API Key (BFF → API) ----------------------------------------------------
+
+async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> bool:
+    """Verifica la API Key del BFF (header `X-API-Key`).
+
+    Protege el ACCESO A LA RED: solo el BFF debe llamar a la API, nunca el
+    navegador directamente. No identifica usuario; eso es `get_current_user`.
+    Comparación en tiempo constante para no filtrar la clave por timing.
+    """
+    if not secrets.compare_digest(x_api_key, settings.API_KEY):
+        raise InvalidApiKeyError()
+    return True

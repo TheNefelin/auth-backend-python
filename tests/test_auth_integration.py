@@ -138,3 +138,44 @@ async def test_logout_revoca_sesion(client):
     token = reg.json()["access_token"]
     r = await client.post("/auth/logout", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
+
+
+# ---------------------------------------------------------------- API Key (BFF)
+
+async def test_ruta_sesion_sin_api_key_401(client):
+    """Sin X-API-Key, las rutas de sesión rechazan aunque el token sea válido."""
+    reg = await client.post("/auth/register", json={"email": "apikey@example.com", "password": "Secreta123"})
+    token = reg.json()["access_token"]
+
+    # Se omite la cabecera por defecto del fixture.
+    r = await client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}", "X-API-Key": ""},
+    )
+    assert r.status_code == 401
+
+
+async def test_ruta_sesion_con_api_key_incorrecta_401(client):
+    reg = await client.post("/auth/register", json={"email": "apikey2@example.com", "password": "Secreta123"})
+    token = reg.json()["access_token"]
+
+    r = await client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}", "X-API-Key": "clave-equivocada"},
+    )
+    assert r.status_code == 401
+
+
+async def test_ruta_publica_no_exige_api_key(client):
+    """login/register/google son públicas: no requieren X-API-Key."""
+    r = await client.post(
+        "/auth/register",
+        json={"email": "publica@example.com", "password": "Secreta123"},
+        headers={"X-API-Key": ""},
+    )
+    assert r.status_code == 200
+
+
+async def test_health_no_exige_api_key(client):
+    r = await client.get("/health", headers={"X-API-Key": ""})
+    assert r.status_code == 200

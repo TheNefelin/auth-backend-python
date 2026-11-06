@@ -5,6 +5,8 @@
 - Cada test corre en una transacción que se **revierte** al final → no deja
   datos, no toca la BD de desarrollo.
 - Override de `get_db` para que la app use la BD de test.
+- El rate limit se desactiva: los tests no prueban abuso, y compartir la clave
+  por IP haría que unos tests agotaran el cupo de otros.
 - Google (tokeninfo/userinfo) se mockea en los tests; la BD es real.
 
 Si `TEST_DATABASE_URL` no está definida, los tests de integración se **saltan**
@@ -20,7 +22,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from src.core.config import settings
 from src.core.database import get_db
+from src.core.limiter import limiter
 from src.main import app
+
+# Sin rate limit en tests: la clave es por IP (`test`) y unos tests agotarían
+# el cupo de otros, dando 429 en vez del comportamiento bajo prueba.
+limiter.enabled = False
 
 SCHEMA_FILE = Path(__file__).resolve().parents[1] / "schema_auth.sql"
 
@@ -70,11 +77,19 @@ async def db_session(test_engine):
 
 @pytest_asyncio.fixture
 async def client(db_session):
-    """AsyncClient con `get_db` apuntando a la sesión de test (aislada)."""
+    """AsyncClient con `get_db` apuntando a la sesión de test (aislada).
+
+    Añade la cabecera `X-API-Key` por defecto: las rutas de sesión
+    (`/auth/me`, `/auth/refresh`, `/auth/logout`) la exigen, igual que el BFF.
+    """
     async def _override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-API-Key": settings.API_KEY},
+    ) as c:
         yield c
     app.dependency_overrides.clear()
