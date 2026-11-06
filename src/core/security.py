@@ -165,13 +165,16 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 
 # --- API Key (BFF → API) ----------------------------------------------------
 
-async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> bool:
+async def verify_api_key(x_api_key: str | None = Header(None, alias="X-API-Key")) -> bool:
     """Verifica la API Key del BFF (header `X-API-Key`).
 
     Protege el ACCESO A LA RED: solo el BFF debe llamar a la API, nunca el
     navegador directamente. No identifica usuario; eso es `get_current_user`.
-    Comparación en tiempo constante para no filtrar la clave por timing.
+
+    La cabecera se declara OPCIONAL para que el fallo lo decida esta función
+    (401 `invalid-api-key`), no la validación de FastAPI (422). Comparación en
+    tiempo constante para no filtrar la clave por timing.
     """
-    if not secrets.compare_digest(x_api_key, settings.API_KEY):
+    if not x_api_key or not secrets.compare_digest(x_api_key, settings.API_KEY):
         raise InvalidApiKeyError()
     return True

@@ -142,40 +142,46 @@ async def test_logout_revoca_sesion(client):
 
 # ---------------------------------------------------------------- API Key (BFF)
 
-async def test_ruta_sesion_sin_api_key_401(client):
-    """Sin X-API-Key, las rutas de sesión rechazan aunque el token sea válido."""
-    reg = await client.post("/auth/register", json={"email": "apikey@example.com", "password": "Secreta123"})
-    token = reg.json()["access_token"]
+async def test_toda_la_api_sin_api_key_401(client):
+    """Sin X-API-Key, TODA la API da 401 invalid-api-key (no 422 de validación).
 
-    # Se omite la cabecera por defecto del fixture.
-    r = await client.get(
-        "/auth/me",
-        headers={"Authorization": f"Bearer {token}", "X-API-Key": ""},
-    )
+    Se envía un body VÁLIDO a propósito: con un body vacío el 422 de validación
+    enmascararía el fallo de la API Key (fue un falso positivo real).
+    """
+    body = {"email": "sin.api.key@example.com", "password": "Secreta123"}
+    for method, path, payload in (
+        ("post", "/auth/login", body),
+        ("post", "/auth/register", body),
+        ("post", "/auth/google", {"googleToken": "x"}),
+        ("post", "/auth/refresh", {"refresh_token": "x"}),
+        ("post", "/auth/logout", None),
+        ("get", "/auth/me", None),
+    ):
+        headers = {"X-API-Key": ""}
+        if method == "get":
+            r = await client.get(path, headers=headers)
+        else:
+            r = await client.post(path, json=payload, headers=headers)
+        assert r.status_code == 401, f"{method.upper()} {path} dio {r.status_code}, no 401"
+        assert r.json()["type"] == "invalid-api-key", f"{method.upper()} {path} no fallo por la API Key"
+
+
+async def test_api_key_incorrecta_401(client):
+    r = await client.post("/auth/register", json={}, headers={"X-API-Key": "clave-equivocada"})
     assert r.status_code == 401
 
 
-async def test_ruta_sesion_con_api_key_incorrecta_401(client):
-    reg = await client.post("/auth/register", json={"email": "apikey2@example.com", "password": "Secreta123"})
-    token = reg.json()["access_token"]
-
-    r = await client.get(
-        "/auth/me",
-        headers={"Authorization": f"Bearer {token}", "X-API-Key": "clave-equivocada"},
-    )
-    assert r.status_code == 401
-
-
-async def test_ruta_publica_no_exige_api_key(client):
-    """login/register/google son públicas: no requieren X-API-Key."""
+async def test_api_key_correcta_deja_pasar(client):
+    """Con la Key correcta, register funciona (falla solo por body vacio: 422)."""
     r = await client.post(
         "/auth/register",
-        json={"email": "publica@example.com", "password": "Secreta123"},
-        headers={"X-API-Key": ""},
+        json={"email": "apikey.ok@example.com", "password": "Secreta123"},
+        headers={"X-API-Key": settings.API_KEY},
     )
     assert r.status_code == 200
 
 
 async def test_health_no_exige_api_key(client):
+    """`/health` es infraestructura, no API: no exige Key."""
     r = await client.get("/health", headers={"X-API-Key": ""})
     assert r.status_code == 200

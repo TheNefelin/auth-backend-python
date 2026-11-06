@@ -6,11 +6,14 @@ from src.core.security import require_user, verify_api_key
 from src.schemas import dtos
 from . import service
 
-router = APIRouter(prefix="/auth", tags=["auth"])
-
-# Rutas de sesión: solo deben llegar vía BFF (que añade X-API-Key).
-# login/register/google quedan públicas por diseño (el usuario aún no tiene sesión).
-api_key_required = Depends(verify_api_key)
+router = APIRouter(
+    prefix="/auth",
+    tags=["auth"],
+    # Toda la API exige la API Key del BFF (a nivel de router: ninguna ruta
+    # nueva puede quedarse sin proteger por descuido). Fuera quedan solo
+    # /health y /docs, que son infraestructura, no API.
+    dependencies=[Depends(verify_api_key)],
+)
 
 
 @router.post("/login")
@@ -27,20 +30,20 @@ async def register(request: Request, data: dtos.UserRegister, db: AsyncSession =
     return await svc.register(data)
 
 
-@router.post("/refresh", response_model=dtos.Token, dependencies=[api_key_required])
+@router.post("/refresh", response_model=dtos.Token)
 @limiter.limit("30/minute")
 async def refresh(request: Request, data: dtos.RefreshRequest, db: AsyncSession = Depends(get_db)):
     svc = service.AuthService(db)
     return await svc.refresh_token(data.refresh_token)
 
 
-@router.post("/logout", dependencies=[api_key_required])
+@router.post("/logout")
 async def logout(user=Depends(require_user), db: AsyncSession = Depends(get_db)):
     svc = service.AuthService(db)
     return await svc.logout(user["id"])
 
 
-@router.get("/me", response_model=dtos.UserProfile, dependencies=[api_key_required])
+@router.get("/me", response_model=dtos.UserProfile)
 async def me(user=Depends(require_user), db: AsyncSession = Depends(get_db)):
     svc = service.AuthService(db)
     return await svc.get_profile(user["id"])
