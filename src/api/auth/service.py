@@ -1,4 +1,4 @@
-﻿"""Service module for Auth Unificado backend.
+"""Service module for Auth Unificado backend.
 
 Contains business logic for authentication operations.
 """

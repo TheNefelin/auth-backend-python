@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- Auth Unificado Transversal — Modelo de Tablas (PostgreSQL)
 -- ============================================================
 -- Soporte actual: email + contrasena (local) y Google (activo).
