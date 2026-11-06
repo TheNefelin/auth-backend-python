@@ -47,8 +47,8 @@ Los `client_id` y URLs de los proveedores **no se guardan en la BD**: se gestion
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | `POST` | `/auth/google` | Login con Google (valida token OAuth 2.0), retorna JWT + refresh token |
-| `POST` | `/auth/login` | Login con email + contraseña (pendiente de implementación) |
-| `POST` | `/auth/register` | Registro (pendiente de implementación) |
+| `POST` | `/auth/login` | Login con email + contraseña, retorna JWT + refresh token |
+| `POST` | `/auth/register` | Registro local (email + contraseña), auto-login: retorna JWT + refresh token |
 | `POST` | `/auth/refresh` | Renueva JWT usando refresh token (rotación de sesión) |
 | `POST` | `/auth/logout` | Revoca las sesiones del usuario (requiere Bearer) |
 | `GET` | `/auth/me` | Perfil del usuario autenticado (requiere Bearer) |
@@ -113,7 +113,8 @@ Los tests son **unitarios** (no tocan base de datos): mockean repositories y ser
 - Las revocaciones de sesión deben ser inmediatas al logout.
 
 ## Pendientes
-- Login email+contraseña y `/auth/register` (la lógica existe parcialmente; falta verificación de password con `pwdlib`).
 - GitHub y Apple (stubs; replicar el patrón de Google).
-- API Key global (`X-API-Key`) — **no implementada**.
-- Detección de reuso del refresh token (revocar la familia de sesiones).
+- `/auth/connect` (unificar cuentas federadas) y verificación de email.
+- API Key global (`X-API-Key`) — definida (`verify_api_key`), **sin conectar**.
+- MFA/2FA, cambio de correo/contraseña, brute-force.
+- Tests de integración con BD real (hoy solo unitarios).

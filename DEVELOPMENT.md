@@ -21,10 +21,10 @@ Backend de autenticación transversal que soporta:
 | Lenguaje | Python 3.14 (venv `.venv`) | En uso |
 | Framework | FastAPI | Google funcional |
 | ORM / DB | SQLAlchemy 2.1 (async) + PostgreSQL | En uso |
-| Auth | JWT (HS256) + refresh rotativo con idle timeout | Implementado |
+| Auth | Google + registro/login local; JWT (HS256) + refresh rotativo con idle timeout | Implementado |
 | Hashing | `pwdlib` + `bcrypt` | Implementado (passlib eliminado) |
 | MFA | TOTP (RFC 6238) | Planificado |
-| Tests | pytest (unitarios, sin BD) | 31/31 |
+| Tests | pytest (unitarios, sin BD) | 32/32 |
 | Config | `.env` cargado con python-dotenv (clase propia) | En uso |
 
 ---
@@ -71,22 +71,25 @@ backend-python/
 | `ON DELETE RESTRICT` en FKs de `users` | Evitar borrado en cascada. Soft delete con `deleted_at`. | Aceptado |
 | `client_id` y URLs de endpoints en `.env` | Configuración, no datos de negocio. | Aceptado |
 | `get_db()` hace commit/rollback por request | Antes nada persistía; atómico para user + identity. | Aceptado |
-| Refresh token: hash SHA-256, rotación, expiración absoluta + idle timeout | Nunca se guarda el token en claro; la sesión no es eterna. | Aceptado |
+| Refresh token: hash SHA-256, rotación **atómica** + detección de reuso, absoluto + idle | Nunca en claro; la sesión no es eterna; un token reusado revoca la familia. | Aceptado |
 | Hashing con `pwdlib[bcrypt]` | passlib está abandonado e incompatible con bcrypt ≥4.1. | Aceptado |
-| `require_user`/`require_admin` leen el rol de la BD | El token identifica; el permiso se resuelve en servidor. | Aceptado |
+| Errores RFC 9457 (`fastapi-problem`) con excepciones semánticas | Formato único y estándar; nada de `HTTPException` ad-hoc. | Aceptado |
+| `core/` separado: `security`(auth), `database`(get_db), `dependencies`(solo API key), `roles`(enum), `startup`(valida roles) | Una responsabilidad por módulo. | Aceptado |
+| Roles: enum = contrato + validación al arranque contra `user_roles` | Evita fallo silencioso si la BD diverge. | Aceptado |
+| Rate limit por identidad (`slowapi`: usuario/IP) | Protección de fuerza bruta sin castigar por IP compartida. | Aceptado |
 | No merge automático por email | Previene *account takeover*. Vinculación explícita (futuro `/auth/connect`). | Aceptado |
 
 ---
 
 ## 5. Pendientes
 
-- [ ] `/auth/login` y `/auth/register` (email+contraseña): lógica parcial, sin verificar.
 - [ ] GitHub y Apple (stubs; replicar el patrón de Google).
-- [ ] Detección de reuso del refresh token (revocar la familia).
-- [ ] Rate limiting en login; API Key global (`verify_api_key_header`).
+- [ ] `/auth/connect` + `/auth/unlink` (unificar cuentas federadas).
+- [ ] Verificación de email (`email_verified` real).
+- [ ] `verify_api_key` (definido, sin conectar; falta definir su contexto).
 - [ ] MFA/2FA (TOTP + códigos de recuperación).
-- [ ] Cambio de correo/contraseña, flujo "olvidé contraseña", brute-force, `/auth/connect` + `/auth/unlink`.
-- [ ] Deuda: `@validator`→`@field_validator` (Pydantic V2), `declarative_base`→`orm.declarative_base`, `ValidationException.super__` (typo), `.env.demo` (`DEBUG`/`API_KEY` sin consumidor).
+- [ ] Cambio de correo/contraseña, "olvidé contraseña", brute-force.
+- [ ] Tests de integración (BD real). `.env.demo`: `DEBUG`/`API_KEY` sin consumidor.
 
 ---
 
