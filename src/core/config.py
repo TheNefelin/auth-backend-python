@@ -79,6 +79,9 @@ class Settings:
     # Un default vacío permitiría que una clave vacía pasara la verificación.
     API_KEY: str = _required("API_KEY")
 
+    # Logging
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+
     # CORS
     CORS_ORIGINS: list[str] = _parse_cors_origins()
 

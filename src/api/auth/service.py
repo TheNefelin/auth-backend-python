@@ -15,6 +15,7 @@ from ...core.security import (
 )
 from ...core.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from ...core.config import settings
+from ...core.logger import logger
 from ...schemas.dtos import UserLogin, UserRegister, UserProfile, Token, UserProfile
 from ...models import User
 from .repository import UserRepository, UserRoleRepository, UserStatusRepository, \
@@ -33,9 +34,11 @@ class AuthService:
         user = await repo.get_by_email(credentials.email)
 
         if not user or not user.can_authenticate():
+            logger.warning("Login fallido: usuario no encontrado o inactivo — email=%s", credentials.email)
             raise UnauthorizedError("Invalid email or password")
 
         if not verify_password(credentials.password, user.password_hash):  # type: ignore
+            logger.warning("Login fallido: contraseña incorrecta — email=%s", credentials.email)
             raise UnauthorizedError("Invalid email or password")
 
         status = await UserStatusRepository(self.db).get_by_id(user.status_id)
@@ -53,6 +56,7 @@ class AuthService:
 
         info = await verify_google_token(google_token)
         if not info:
+            logger.warning("Google login fallido: token inválido")
             raise UnauthorizedError("Invalid Google token")
 
         # Datos del perfil (nombre/imagen): source de verdad = userinfo; degradación suave si falla.
@@ -198,6 +202,7 @@ class AuthService:
         # sesiones del usuario para neutralizar también al atacante.
         if session.is_revoked:
             await repo.revoke_all_for_user(session.user_id)
+            logger.warning("Reuso de refresh token detectado — user_id=%s, sesiones revocadas", session.user_id)
             raise UnauthorizedError("Refresh token reuse detected; sessions revoked")
 
         now = datetime.now(timezone.utc)
@@ -221,6 +226,7 @@ class AuthService:
         # petición concurrente ya lo revocó, se trata como reuso (no se emite par).
         if not await repo.revoke_if_active(session.id):
             await repo.revoke_all_for_user(session.user_id)
+            logger.warning("Reuso concurrente de refresh token — user_id=%s", session.user_id)
             raise UnauthorizedError("Refresh token reuse detected; sessions revoked")
 
         return await self._issue_tokens(user.id, expires_at=session.expires_at)

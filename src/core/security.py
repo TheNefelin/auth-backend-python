@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
 from .database import get_db
 from .exceptions import ForbiddenError, InvalidApiKeyError, UnauthorizedError
+from .logger import logger
 from .roles import UserRole
 from ..models import User, UserRole as UserRoleModel, UserStatus
 
@@ -176,5 +177,6 @@ async def verify_api_key(x_api_key: str | None = Header(None, alias="X-API-Key")
     tiempo constante para no filtrar la clave por timing.
     """
     if not x_api_key or not secrets.compare_digest(x_api_key, settings.API_KEY):
+        logger.warning("API Key inválida recibida")
         raise InvalidApiKeyError()
     return True
