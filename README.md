@@ -1,6 +1,7 @@
 # backend-python — Sistema de Autenticación
 
-Backend FastAPI para autenticación transversal. Estado actual: **login con Google funcional**; email+contraseña, GitHub y Apple están **pendientes**.
+Backend FastAPI para autenticación transversal (email + contraseña y Google).
+Estado actual: **login clásico, registro y Google funcionales**; GitHub y Apple están **pendientes** (stubs).
 
 ## Relaciones clave
 - `users.user_role_id` → `user_roles.id`
@@ -50,8 +51,9 @@ Los `client_id` y URLs de los proveedores **no se guardan en la BD**: se gestion
 | `POST` | `/auth/login` | Login con email + contraseña, retorna JWT + refresh token |
 | `POST` | `/auth/register` | Registro local (email + contraseña), auto-login: retorna JWT + refresh token |
 | `POST` | `/auth/refresh` | Renueva JWT usando refresh token (rotación de sesión) |
-| `POST` | `/auth/logout` | Revoca las sesiones del usuario (requiere Bearer) |
-| `GET` | `/auth/me` | Perfil del usuario autenticado (requiere Bearer) |
+| `POST` | `/auth/logout` | Revoca las sesiones del usuario (requiere Bearer + X-API-Key) |
+| `GET` | `/auth/me` | Perfil del usuario autenticado (requiere Bearer + X-API-Key) |
+| `GET` | `/health` | Health check (sin autenticación) |
 
 ## Reglas de Seguridad
 1. **Nunca confíes solo en el email:** el email de Google puede cambiar. Usa `user_identities.provider_user_id` (sub de Google) como identidad estable.
@@ -60,8 +62,11 @@ Los `client_id` y URLs de los proveedores **no se guardan en la BD**: se gestion
 4. **Rotación de refresh tokens:** cada uso genera uno nuevo y revoca el anterior. Se guarda solo el **hash SHA-256** (nunca el token en claro).
 5. **Expiración absoluta + idle timeout:** la sesión muere a lo sumo en `JWT_REFRESH_EXPIRE_DAYS` y, antes, por inactividad (`JWT_REFRESH_IDLE_MINUTES`).
 6. **Rol por request:** `require_user` / `require_admin` leen el rol real de la BD, no del token.
+7. **API Key (X-API-Key):** todas las rutas de `/auth/*` exigen la cabecera `X-API-Key` (solo el BFF la conoce). `/health` y `/docs` quedan fuera (infraestructura).
+8. **Comparación en tiempo constante:** `secrets.compare_digest` para la API Key (evita timing attacks).
 
 ## Instalación
+
 ```bash
 # 1. Clonar repositorio
 git clone <url-del-repositorio>
@@ -77,14 +82,47 @@ py -m venv .venv
 #    Al activarlo, el prompt debe mostrar (.venv)
 
 # 4. Instalar paquetes del backend (con el venv activo)
-pip install fastapi uvicorn sqlalchemy pwdlib[bcrypt] bcrypt python-jose[cryptography] pydantic python-dotenv httpx fastapi-problem rfc9457 slowapi
+```
 
-# 4.1 Instalar dependencias de testing (solo desarrollo)
+### 4.1 Core / API (FastAPI + Uvicorn + Pydantic)
+```bash
+pip install fastapi uvicorn pydantic
+```
+
+### 4.2 Base de datos (SQLAlchemy + asyncpg + dotenv)
+```bash
+pip install sqlalchemy asyncpg python-dotenv
+```
+
+### 4.3 Seguridad (JWT + passwords)
+```bash
+pip install python-jose[cryptography] pwdlib[bcrypt] bcrypt
+```
+
+### 4.4 HTTP / integración externa (Google)
+```bash
+pip install httpx
+```
+
+### 4.5 Control de errores (RFC 9457)
+```bash
+pip install fastapi-problem rfc9457
+```
+
+### 4.6 Rate limiting
+```bash
+pip install slowapi
+```
+
+### 4.7 Testing (solo desarrollo)
+```bash
 pip install pytest pytest-asyncio
+```
 
+```bash
 # 5. Configurar variables de entorno
 cp .env.demo .env
-# Editar .env con tus credenciales (GOOGLE_CLIENT_ID, JWT_SECRET_KEY, etc.)
+# Editar .env con tus credenciales (GOOGLE_CLIENT_ID, JWT_SECRET_KEY, API_KEY, etc.)
 
 # 6. Crear la base de datos y aplicar el esquema
 createdb auth_db
@@ -101,20 +139,21 @@ python run.py
 ## Tests
 ```bash
 # Con el venv activo
-pytest                       # toda la suite
-pytest tests/test_security.py -v   # un solo archivo
+pytest                       # toda la suite (50 tests)
+pytest tests/test_auth_integration.py -v   # un solo archivo
 ```
-Los tests son **unitarios** (no tocan base de datos): mockean repositories y servicios externos.
+Los tests incluyen unitarios + integración con BD real de test (`db_testing`, rollback por test).
 
 ## Seguridad
 - Las credenciales nunca se commitean al repositorio (`.env` está fuera de git; usa `.env.demo` como plantilla).
 - El `JWT_SECRET_KEY` debe ser real y distinto en producción.
 - Las refresh tokens se rotan en cada uso y se guardan hasheadas.
 - Las revocaciones de sesión deben ser inmediatas al logout.
+- La API Key (`API_KEY`) debe coincidir entre frontend (`.env`) y backend (`.env`).
 
 ## Pendientes
 - GitHub y Apple (stubs; replicar el patrón de Google).
 - `/auth/connect` (unificar cuentas federadas) y verificación de email.
-- API Key global (`X-API-Key`) — definida (`verify_api_key`), **sin conectar**.
 - MFA/2FA, cambio de correo/contraseña, brute-force.
-- Tests de integración con BD real (hoy solo unitarios).
+- Alertas de seguridad (hoy solo logs a stdout).
+- Endurecer `style-src` en el CSP (riesgo bajo, aceptado por la industria).

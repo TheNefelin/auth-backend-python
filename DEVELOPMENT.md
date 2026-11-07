@@ -74,7 +74,7 @@ backend-python/
 | Refresh token: hash SHA-256, rotación **atómica** + detección de reuso, absoluto + idle | Nunca en claro; la sesión no es eterna; un token reusado revoca la familia. | Aceptado |
 | Hashing con `pwdlib[bcrypt]` | passlib está abandonado e incompatible con bcrypt ≥4.1. | Aceptado |
 | Errores RFC 9457 (`fastapi-problem`) con excepciones semánticas | Formato único y estándar; nada de `HTTPException` ad-hoc. | Aceptado |
-| `core/` separado: `security`(auth), `database`(get_db), `dependencies`(solo API key), `roles`(enum), `startup`(valida roles) | Una responsabilidad por módulo. | Aceptado |
+| `core/` separado: `security`(auth + API key), `database`(get_db), `roles`(enum), `startup`(valida roles) | Una responsabilidad por módulo. | Aceptado |
 | Roles: enum = contrato + validación al arranque contra `user_roles` | Evita fallo silencioso si la BD diverge. | Aceptado |
 | Rate limit por identidad (`slowapi`: usuario/IP) | Protección de fuerza bruta sin castigar por IP compartida. | Aceptado |
 | No merge automático por email | Previene *account takeover*. Vinculación explícita (futuro `/auth/connect`). | Aceptado |
@@ -86,10 +86,11 @@ backend-python/
 - [ ] GitHub y Apple (stubs; replicar el patrón de Google).
 - [ ] `/auth/connect` + `/auth/unlink` (unificar cuentas federadas).
 - [ ] Verificación de email (`email_verified` real).
-- [ ] `verify_api_key` (definido, sin conectar; falta definir su contexto).
+- [x] `verify_api_key`: conectado a nivel de router (`secrets.compare_digest`); toda la API exige `X-API-Key`.
 - [ ] MFA/2FA (TOTP + códigos de recuperación).
 - [ ] Cambio de correo/contraseña, "olvidé contraseña", brute-force.
-- [ ] Tests de integración (BD real). `.env.demo`: `DEBUG`/`API_KEY` sin consumidor.
+- [x] Tests de integración (BD real): 50 tests, rollback por test.
+- [ ] Alertas de seguridad (hoy solo logs a stdout).
 
 ---
 
