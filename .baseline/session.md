@@ -1,25 +1,31 @@
 # Sesión — backend-python
 
 > Checkpoint local (fuera de Git): el punto de continuación de la tarea en curso, no un diario.
-> Manténlo corto (≤ ~40 líneas) y reemplaza su contenido en vez de acumular. Sin transcripciones ni secretos.
+> Mantenlo corto (≤ ~40 líneas) y reemplaza su contenido en vez de acumular. Sin transcripciones ni secretos.
 
 ## Tarea activa
 
-Core backend en estado senior + auth Google/register/login local. Suite en verde.
+Backend completo para MVP. Auth Google + login clásico + registro. API Key exigida en toda la API. Logging de seguridad. Suite en verde.
 
 ## Último avance comprobado
 
-- **Core refactorizado (bloques 0-3)**:
-  - Error unificado **RFC 9457** (`fastapi-problem` + `rfc9457`); excepciones semánticas en `core/exceptions.py`; handler global en `main.py`.
-  - `core/` separado: `dependencies.py` = solo `verify_api_key` (sin conectar); auth en `security.py` (`get_current_user`, `require_user/admin`); `get_db` en `database.py`; `roles.py` (enum) + `startup.py` (valida roles al arrancar).
-  - Refresh: rotación **atómica** + **detección de reuso** (revoca familia). Rate limit real (`slowapi`, por usuario/IP).
-  - Hashing `pwdlib[bcrypt]` (passlib eliminado). Pydantic V2, SQLAlchemy 2.0 (`DeclarativeBase`). DTOs muertos eliminados.
-- **Register local e2e**: hash + identidad `local` + auto-login (tokens); 409 si email existe (sin merge); validaciones email/password (8-128). Verificado con TestClient.
-- **Login local**: verifica password + estado (`UserStatusRepository`), emite tokens.
-- **Tests backend 32/32** (`pytest`, unitarios sin BD). Entorno: `.venv` aislado — activar para todo.
+- **Auth**: Google login, `/auth/login`, `/auth/register`, `/auth/me`, `/auth/refresh`, `/auth/logout`.
+- **Seguridad**: `verify_api_key` a nivel de router (router-level, `compare_digest`); toda la API exige `X-API-Key`. `/health` y `/docs` sin Key.
+- **Logging**: eventos de seguridad registrados (login fallido, Google token inválido, reuso, API Key inválida). `LOG_LEVEL` configurable.
+- **Roles**: enum = contrato + validación al arranque contra `user_roles`.
+- **Refresh**: rotación atómica + detección de reuso + idle/absoluto timeout.
+- **Verificado**: `pytest` **50/50**, build OK.
 
 ## Pendientes
 
-- GitHub / Apple; `/auth/connect`; verificación de email; `verify_api_key` (contexto por definir).
-- `.env.demo`: `DEBUG`/`API_KEY` sin consumidor. Tests de integración (BD real).
-- `docs/auth-flow.md` §9 tiene el roadmap completo.
+- GitHub / Apple (stubs; replicar patrón de Google).
+- `/auth/connect` + `/auth/unlink` (unificar cuentas federadas).
+- Verificación de email (`email_verified` real).
+- MFA/2FA (TOTP + códigos de recuperación).
+- Cambio de correo/contraseña, "olvidé contraseña", brute-force.
+- Alertas de seguridad (hoy solo logs a stdout).
+- Endurecer `style-src` en el CSP (riesgo bajo, aceptado por la industria).
+
+## Nota
+
+Proyecto listo para MVP. Backend y frontend commiteados y al día.
