@@ -1,4 +1,4 @@
-# DEVELOPMENT.md — Mapa del proyecto backend-python (Auth Unificado MVP)
+# DEVELOPMENT.md — Mapa del proyecto auth-backend-python (Auth Unificado MVP)
 
 Este archivo es la memoria viva del backend. Se actualiza solo con decisiones que sobreviven a la sesión. No es un diario.
 
@@ -32,7 +32,7 @@ Backend de autenticación transversal que soporta:
 ## 3. Estructura de carpetas (propuesta)
 
 ```
-backend-python/
+auth-backend-python/
 ├── DEVELOPMENT.md          ← este archivo
 ├── AGENTS.md               ← reglas de operación
 ├── SKILL.md                ← reglas del stack FastAPI

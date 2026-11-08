@@ -1,4 +1,4 @@
-# SKILL.md — backend-python (FastAPI + SQL)
+# SKILL.md — auth-backend-python (FastAPI + SQL)
 
 > Guía de referencia para el stack del backend. Leelas antes de tocar código.
 > Los skills completos están en `.baseline/skills/`.

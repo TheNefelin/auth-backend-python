@@ -1,4 +1,4 @@
-# backend-python — Sistema de Autenticación
+# auth-backend-python — Sistema de Autenticación
 
 Backend FastAPI para autenticación transversal (email + contraseña y Google).
 Estado actual: **login clásico, registro y Google funcionales**; GitHub y Apple están **pendientes** (stubs).
@@ -11,7 +11,7 @@ Estado actual: **login clásico, registro y Google funcionales**; GitHub y Apple
 - `user_sessions.user_id` → `users.id` (**ON DELETE RESTRICT**, no CASCADE)
 
 ## Modelo de Datos
-El esquema se define en `backend-python/schema_auth.sql` (se aplica manualmente a PostgreSQL; no hay migraciones Alembic). Tablas principales:
+El esquema se define en `auth-backend-python/schema_auth.sql` (se aplica manualmente a PostgreSQL; no hay migraciones Alembic). Tablas principales:
 - `users`: perfil principal con soft delete (`deleted_at`)
 - `user_identities`: vínculos federados (Google, GitHub, Apple, local)
 - `user_sessions`: sesiones activas mediante refresh tokens
@@ -70,7 +70,7 @@ Los `client_id` y URLs de los proveedores **no se guardan en la BD**: se gestion
 ```bash
 # 1. Clonar repositorio
 git clone <url-del-repositorio>
-cd backend-python
+cd auth-backend-python
 
 # 2. Crear entorno virtual
 py -m venv .venv

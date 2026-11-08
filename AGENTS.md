@@ -6,7 +6,7 @@
 > Instalado con agent-baseline 0.2.2. No edites este bloque: edita `.baseline/AGENTS.md`.
 <!-- agent-baseline:end -->
 
-# AGENTS.md — backend-python (Auth Unificado MVP)
+# AGENTS.md — auth-backend-python (Auth Unificado MVP)
 
 ## Stack
 
@@ -28,7 +28,7 @@ Español neutro con "tú" o impersonal. Sin voseo ni modismos regionales.
 ## 6. Contexto
 
 - Antes de tocar un área, lee su memoria: `DEVELOPMENT.md`, luego `README.md` y el `SKILL.md` del proyecto.
-- `install`, `build` y `test` se ejecutan **dentro de `backend-python/`**, nunca en la raíz.
+- `install`, `build` y `test` se ejecutan **dentro de `auth-backend-python/`**, nunca en la raíz.
 
 ## 11. Memoria
 
