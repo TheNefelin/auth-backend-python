@@ -12,10 +12,12 @@
 
 | Capa | Tecnología | Estado |
 |------|-----------|--------|
-| Backend | Python + FastAPI | MVP (por implementar) |
-| Base de datos | PostgreSQL | MVP (por implementar) |
-| ORM / DB | SQLAlchemy 2.1 (async) | MVP (por implementar) |
-| Tests | pytest | Planificado |
+| Lenguaje | Python 3.14 | En uso |
+| Backend | Python + FastAPI | Google + login/registro local funcionales |
+| Base de datos | PostgreSQL | En uso |
+| ORM / DB | SQLAlchemy 2.1 (async) | En uso |
+| Auth | Google + local; JWT (HS256) + refresh rotativo | Implementado |
+| Tests | pytest (unitarios + integración con BD real) | 50/50 |
 
 ## 0. Rol
 

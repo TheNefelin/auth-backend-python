@@ -9,6 +9,7 @@
 |-------|------|-------------|
 | `fastapi` | `.baseline/skills/fastapi/SKILL.md` | Endpoints, modelos ORM, servicios, auth, uploads, email, testing |
 | `sql` | `.baseline/skills/sql/SKILL.md` | Esquema, tablas, índices, consultas, transacciones, migraciones |
+| `memoria` | `.baseline/skills/memoria/SKILL.md` | Auditoría de `DEVELOPMENT.md` (presupuesto, poda, decisiones caducadas) |
 
 ## Cuándo NO usar
 
@@ -25,7 +26,7 @@
 
 ## Notas
 
-- Este proyecto es el MVP del backend de autenticación transversal.
-- El código se implementará desde cero (no se modifica código existente sin autorización).
+- Este proyecto es el backend FastAPI del sistema de autenticación transversal (Google + login/registro local funcionales).
+- El agente no modifica código sin autorización explícita del usuario.
 - El stack es Python + FastAPI + SQLAlchemy 2.1 (async) + PostgreSQL.
 - Lee `.baseline/skills/fastapi/SKILL.md` y `.baseline/skills/sql/SKILL.md` para replicar el patrón senior.

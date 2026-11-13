@@ -42,8 +42,7 @@ auth-backend-python/
 │   ├── api/auth/       → única feature: routes, service, repository, google_service
 │   ├── core/           → config, database, dependencies, exceptions, security,
 │   │                     logger, limiter, roles, startup
-│   ├── models/         → user, user_role, user_status, auth_provider,
-│   │                     user_identity, user_session, mfa, base
+│   ├── models/         → models.py (todos los modelos) + __init__.py (fachada)
 │   └── schemas/dtos.py → DTOs Pydantic v2
 └── tests/              → conftest (BD real, rollback por test) + 5 test_*.py
 ```
@@ -69,6 +68,7 @@ auth-backend-python/
 | No merge automático por email | Previene *account takeover*. Vinculación explícita (`/auth/connect`). | Aceptado |
 | Imports al inicio del módulo | Grafo de dependencias visible; `models ← core ← api` no tiene ciclos. | Aceptado |
 | `service.py` importa `google_service` como módulo | Los tests parchean `src.api.auth.google_service.<fn>`; ligar la función rompe el mock. | Aceptado |
+| Modelos en un único `models/models.py` (igual que `schemas/dtos.py`) | Evita imports circulares entre entidades; `models/__init__.py` reexporta y los call sites no cambian. | Aceptado |
 
 ---
 

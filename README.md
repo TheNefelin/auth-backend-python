@@ -1,7 +1,7 @@
 # auth-backend-python — Sistema de Autenticación
 
 Backend FastAPI para autenticación transversal (email + contraseña y Google).
-Estado actual: **login clásico, registro y Google funcionales**; GitHub y Apple están **pendientes** (stubs).
+Estado actual: **login clásico, registro y Google funcionales**; GitHub y Apple están **pendientes** (aún sin rutas en el backend; el frontend ya tiene los botones stub).
 
 ## Relaciones clave
 - `users.user_role_id` → `user_roles.id`
@@ -152,8 +152,10 @@ Los tests incluyen unitarios + integración con BD real de test (`db_testing`, r
 - La API Key (`API_KEY`) debe coincidir entre frontend (`.env`) y backend (`.env`).
 
 ## Pendientes
-- GitHub y Apple (stubs; replicar el patrón de Google).
+- GitHub y Apple (replicar el patrón de Google; aún sin rutas en el backend).
 - `/auth/connect` (unificar cuentas federadas) y verificación de email.
-- MFA/2FA, cambio de correo/contraseña, brute-force.
+- MFA/2FA, cambio de correo/contraseña, flujo "olvidé contraseña".
 - Alertas de seguridad (hoy solo logs a stdout).
-- Endurecer `style-src` en el CSP (riesgo bajo, aceptado por la industria).
+- Mover al repository las queries que hoy hace el service (`select(UserIdentity)`, `db.get(User)`): la skill `fastapi` §4.2 lo prohíbe.
+
+> Nota: la protección contra fuerza bruta ya está cubierta por el rate limit por identidad (`slowapi`) aplicado en `/auth/login` y `/auth/register`.

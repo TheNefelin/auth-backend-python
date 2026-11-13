@@ -1,13 +1,30 @@
-"""Base model class for SQLAlchemy ORM."""
+"""Modelos de dominio (SQLAlchemy 2.1).
 
-from .base import Base
+Fachada del paquete: reexporta los modelos definidos en `models.py` para que
+`from src.models import User` funcione en todo el código, e importa todos los
+modelos para registrarlos en `Base.metadata`.
+"""
 
+from .models import (
+    MFA,
+    AuthProvider,
+    Base,
+    RecoveryCode,
+    User,
+    UserIdentity,
+    UserRole,
+    UserSession,
+    UserStatus,
+)
 
-# Import all models to register them
-from .user import User
-from .user_role import UserRole
-from .user_status import UserStatus
-from .auth_provider import AuthProvider
-from .user_identity import UserIdentity
-from .user_session import UserSession
-from .mfa import MFA, RecoveryCode  # noqa: F401
+__all__ = [
+    "MFA",
+    "AuthProvider",
+    "Base",
+    "RecoveryCode",
+    "User",
+    "UserIdentity",
+    "UserRole",
+    "UserSession",
+    "UserStatus",
+]
