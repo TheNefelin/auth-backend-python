@@ -6,20 +6,16 @@ Contains business logic for authentication operations.
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from ...core.database import get_db
-from ...core.security import (
-    create_access_token,
-    generate_refresh_token,
-    get_password_hash,
-    verify_password,
-)
-from ...core.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
+from sqlalchemy import select
+
 from ...core.config import settings
+from ...core.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from ...core.logger import logger
-from ...schemas.dtos import UserLogin, UserRegister, UserProfile, Token, UserProfile
-from ...models import User
-from .repository import UserRepository, UserRoleRepository, UserStatusRepository, \
-    AuthProviderRepository, UserIdentityRepository, UserSessionRepository
+from ...core.security import create_access_token, generate_refresh_token, get_password_hash, verify_password
+from ...models import User, UserIdentity
+from ...schemas.dtos import UserLogin, UserProfile, UserRegister
+from . import google_service
+from .repository import AuthProviderRepository, UserIdentityRepository, UserRepository, UserRoleRepository, UserSessionRepository, UserStatusRepository
 
 
 class AuthService:
@@ -48,19 +44,13 @@ class AuthService:
         return await self._issue_tokens(user.id)
 
     async def google_login(self, google_token: str) -> dict:
-        from sqlalchemy import select
-
-        from ...models import User, UserIdentity
-        from .google_service import fetch_google_userinfo, verify_google_token
-        from .repository import AuthProviderRepository
-
-        info = await verify_google_token(google_token)
+        info = await google_service.verify_google_token(google_token)
         if not info:
             logger.warning("Google login fallido: token inválido")
             raise UnauthorizedError("Invalid Google token")
 
         # Datos del perfil (nombre/imagen): source de verdad = userinfo; degradación suave si falla.
-        profile = await fetch_google_userinfo(google_token) or {}
+        profile = await google_service.fetch_google_userinfo(google_token) or {}
         given_name = profile.get("given_name") or info.get("given_name")
         family_name = profile.get("family_name") or info.get("family_name")
         picture = profile.get("picture")
@@ -216,8 +206,7 @@ class AuthService:
             await repo.revoke(session)
             raise UnauthorizedError("Session expired due to inactivity")
 
-        from ...models import User as UserModel
-        user = await self.db.get(UserModel, session.user_id)
+        user = await self.db.get(User, session.user_id)
 
         if not user or not user.can_authenticate():
             raise ForbiddenError("User not found or disabled")

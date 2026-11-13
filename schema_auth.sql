@@ -14,6 +14,7 @@
 --       La BD solo almacena: name, display_name, is_active (datos de negocio).
 -- ============================================================
 
+SELECT * FROM auth_providers;
 SELECT * FROM User_identities;
 SELECT * FROM User_mfa;
 SELECT * FROM User_recovery_codes;

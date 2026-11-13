@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from src.core.config import settings
@@ -49,8 +50,6 @@ async def test_engine():
 
     Aplica el esquema de forma idempotente (`CREATE TABLE IF NOT EXISTS`).
     """
-    from sqlalchemy import text
-
     engine = create_async_engine(settings.TEST_DATABASE_URL)
     async with engine.begin() as conn:
         # utf-8-sig descarta el BOM si el .sql lo trae.

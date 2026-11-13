@@ -5,10 +5,12 @@ Handles database operations for authentication entities.
 
 import uuid
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import User, UserRole, UserStatus, AuthProvider
+from ...core.security import hash_refresh_token
+from ...models import AuthProvider, User, UserIdentity, UserRole, UserSession, UserStatus
+
 
 class UserRepository:
     """Repository for User entity."""
@@ -112,8 +114,6 @@ class AuthProviderRepository:
 
     async def create(self, name: str, display_name: "str | None", is_active: bool) -> "AuthProvider":
         """Create new auth provider."""
-        from sqlalchemy import func
-
         provider = AuthProvider(
             name=name,
             display_name=display_name,
@@ -133,10 +133,8 @@ class UserIdentityRepository:
 
     async def get_primary_by_user(self, user_id: uuid.UUID) -> "UserIdentity | None":
         """Get primary identity by user."""
-        from ...models import UserIdentity as UI
-
         result = await self.db.execute(
-            select(UI).where(UI.user_id == user_id, UI.is_primary == True)
+            select(UserIdentity).where(UserIdentity.user_id == user_id, UserIdentity.is_primary == True)
         )
         return result.scalar_one_or_none()
 
@@ -144,9 +142,7 @@ class UserIdentityRepository:
                      email: "str | None" = None, is_primary: bool = False,
                      profile_data: "dict | None" = None) -> "UserIdentity":
         """Create new user identity (provider_id es el id de auth_providers)."""
-        from ...models import UserIdentity as UI
-
-        identity = UI(
+        identity = UserIdentity(
             user_id=user_id,
             provider_id=provider_id,
             provider_user_id=provider_user_id,
@@ -171,10 +167,7 @@ class UserSessionRepository:
 
     async def create(self, user_id: uuid.UUID, refresh_token: str, expires_at) -> "UserSession":
         """Create new session (guarda el hash del refresh token)."""
-        from ...core.security import hash_refresh_token
-        from ...models import UserSession as US
-
-        session = US(
+        session = UserSession(
             user_id=user_id,
             refresh_token=hash_refresh_token(refresh_token),
             expires_at=expires_at,
@@ -186,11 +179,8 @@ class UserSessionRepository:
 
     async def get_by_refresh_token(self, refresh_token: str) -> "UserSession | None":
         """Get session by refresh token (busca por hash)."""
-        from ...core.security import hash_refresh_token
-        from ...models import UserSession as US
-
         result = await self.db.execute(
-            select(US).where(US.refresh_token == hash_refresh_token(refresh_token))
+            select(UserSession).where(UserSession.refresh_token == hash_refresh_token(refresh_token))
         )
         return result.scalar_one_or_none()
 
@@ -210,13 +200,9 @@ class UserSessionRepository:
         Devuelve True si afectó una fila (la revocó), False si ya estaba
         revocada (otra petición la usó antes → posible reuso).
         """
-        from sqlalchemy import update
-
-        from ...models import UserSession as US
-
         result = await self.db.execute(
-            update(US)
-            .where(US.id == session_id, US.is_revoked == False)  # noqa: E712
+            update(UserSession)
+            .where(UserSession.id == session_id, UserSession.is_revoked == False)  # noqa: E712
             .values(is_revoked=True)
         )
         await self.db.flush()
@@ -224,10 +210,8 @@ class UserSessionRepository:
 
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
         """Revoca todas las sesiones activas del usuario (logout global)."""
-        from ...models import UserSession as US
-
         result = await self.db.execute(
-            select(US).where(US.user_id == user_id, US.is_revoked == False)  # noqa: E712
+            select(UserSession).where(UserSession.user_id == user_id, UserSession.is_revoked == False)  # noqa: E712
         )
         for session in result.scalars().all():
             session.is_revoked = True

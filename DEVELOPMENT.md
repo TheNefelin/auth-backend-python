@@ -1,16 +1,12 @@
 # DEVELOPMENT.md — Mapa del proyecto auth-backend-python (Auth Unificado MVP)
 
-Este archivo es la memoria viva del backend. Se actualiza solo con decisiones que sobreviven a la sesión. No es un diario.
+Memoria viva del backend. Solo decisiones que sobreviven a la sesión. No es un diario.
 
 ---
 
 ## 1. Propósito
 
-Backend de autenticación transversal que soporta:
-- Email + contraseña (local)
-- Google (activo)
-- GitHub y Apple (registrados pero inactivos, listos para activar)
-- MFA/2FA con TOTP + códigos de recuperación
+Backend de autenticación transversal: email + contraseña (local), Google (activo), GitHub y Apple (pendientes), MFA/2FA (pendiente).
 
 ---
 
@@ -23,41 +19,33 @@ Backend de autenticación transversal que soporta:
 | ORM / DB | SQLAlchemy 2.1 (async) + PostgreSQL | En uso |
 | Auth | Google + registro/login local; JWT (HS256) + refresh rotativo con idle timeout | Implementado |
 | Hashing | `pwdlib` + `bcrypt` | Implementado (passlib eliminado) |
-| MFA | TOTP (RFC 6238) | Planificado |
-| Tests | pytest (unitarios, sin BD) | 32/32 |
-| Config | `.env` cargado con python-dotenv (clase propia) | En uso |
+| API Key | Global, a nivel de router (`X-API-Key`) | Implementado |
+| MFA | TOTP (RFC 6238) | Pendiente (tablas creadas) |
+| Tests | pytest (unitarios + integración con BD real) | 50/50 |
+| Config | `.env` con python-dotenv | En uso |
 
 ---
 
-## 3. Estructura de carpetas (propuesta)
+## 3. Estructura de carpetas
 
 ```
 auth-backend-python/
-├── DEVELOPMENT.md          ← este archivo
-├── AGENTS.md               ← reglas de operación
-├── SKILL.md                ← reglas del stack FastAPI
-├── .baseline/              → baseline propio
-│   ├── AGENTS.md
-│   ├── session.md
-│   └── skills/fastapi, sql
-├── run.py                  → punto de entrada (uvicorn)
-├── requirements.txt        → dependencias
-├── .env / .env_demo        → variables de entorno (plantilla)
-├── .gitignore
-├── pytest.ini
+├── DEVELOPMENT.md, AGENTS.md, SKILL.md   ← memoria, reglas, skill del stack
+├── .baseline/          → AGENTS.md, session.md, skills/
+├── run.py              → uvicorn src.main:app (127.0.0.1:8000)
+├── pytest.ini          → pythonpath, asyncio_mode, testpaths
+├── vercel.json         → despliegue serverless
+├── .env / .env.demo    → variables de entorno (plantilla versionada)
+├── schema_auth.sql     → modelo de tablas PostgreSQL + seeds
 ├── src/
-│   ├── main.py             → app FastAPI
-│   ├── api/
-│   │   ├── auth/           → login local, Google, GitHub, Apple, refresh, logout, connect
-│   │   ├── users/          → perfil, email, contraseña
-│   │   ├── user_identities/→ identidades federadas (sin routes)
-│   │   └── user_sessions/  → refresh tokens (sin routes)
-│   ├── core/               → config, database, security, exceptions, logger, limiter, dependencies
-│   ├── models/             → modelos de dominio
-│   └── schemas/            → DTOs Pydantic
-├── tests/
-│   └── test_auth.py
-└── static/                 → archivos estáticos
+│   ├── main.py         → app FastAPI, middlewares, handlers RFC 9457
+│   ├── api/auth/       → única feature: routes, service, repository, google_service
+│   ├── core/           → config, database, dependencies, exceptions, security,
+│   │                     logger, limiter, roles, startup
+│   ├── models/         → user, user_role, user_status, auth_provider,
+│   │                     user_identity, user_session, mfa, base
+│   └── schemas/dtos.py → DTOs Pydantic v2
+└── tests/              → conftest (BD real, rollback por test) + 5 test_*.py
 ```
 
 ---
@@ -66,46 +54,46 @@ auth-backend-python/
 
 | Decisión | Justificación | Estado |
 |----------|---------------|--------|
-| Tabla `users` sin `auth_provider` ni `google_sub` | Evitar redundancia; el proveedor se deriva de `user_identities`. | Aceptado |
-| `user_identities` para proveedores federados (`provider_id` INT FK al catálogo) | Permite múltiples proveedores por usuario. | Aceptado |
-| `ON DELETE RESTRICT` en FKs de `users` | Evitar borrado en cascada. Soft delete con `deleted_at`. | Aceptado |
-| `client_id` y URLs de endpoints en `.env` | Configuración, no datos de negocio. | Aceptado |
-| `get_db()` hace commit/rollback por request | Antes nada persistía; atómico para user + identity. | Aceptado |
-| Refresh token: hash SHA-256, rotación **atómica** + detección de reuso, absoluto + idle | Nunca en claro; la sesión no es eterna; un token reusado revoca la familia. | Aceptado |
+| `users` sin `auth_provider` ni `google_sub` | El proveedor se deriva de `user_identities`; evita redundancia. | Aceptado |
+| `user_identities` para proveedores federados | Permite varios proveedores por usuario. | Aceptado |
+| `ON DELETE RESTRICT` en FKs de `users` | Sin borrado en cascada; soft delete con `deleted_at`. | Aceptado |
+| `client_id` y URLs en `.env` | Configuración, no datos de negocio. | Aceptado |
+| `get_db()` hace commit/rollback por request | Atómico para user + identity. | Aceptado |
+| Refresh: hash SHA-256, rotación **atómica** + detección de reuso, absoluto + idle | Nunca en claro; un token reusado revoca la familia. | Aceptado |
 | Hashing con `pwdlib[bcrypt]` | passlib está abandonado e incompatible con bcrypt ≥4.1. | Aceptado |
-| Errores RFC 9457 (`fastapi-problem`) con excepciones semánticas | Formato único y estándar; nada de `HTTPException` ad-hoc. | Aceptado |
-| `core/` separado: `security`(auth + API key), `database`(get_db), `roles`(enum), `startup`(valida roles) | Una responsabilidad por módulo. | Aceptado |
-| Roles: enum = contrato + validación al arranque contra `user_roles` | Evita fallo silencioso si la BD diverge. | Aceptado |
-| Rate limit por identidad (`slowapi`: usuario/IP) | Protección de fuerza bruta sin castigar por IP compartida. | Aceptado |
-| No merge automático por email | Previene *account takeover*. Vinculación explícita (futuro `/auth/connect`). | Aceptado |
+| Errores RFC 9457 (`fastapi-problem`) | Formato único; nada de `HTTPException` ad-hoc. | Aceptado |
+| `core/` separado: `security`, `database`, `dependencies`, `roles`, `startup` | Una responsabilidad por módulo. | Aceptado |
+| Roles: enum = contrato + validación al arranque | Evita fallo silencioso si la BD diverge. | Aceptado |
+| Rate limit por identidad (`slowapi`) | Fuerza bruta sin castigar por IP compartida. | Aceptado |
+| API Key global a nivel de router (`X-API-Key`) | Ninguna ruta nueva queda desprotegida por descuido. | Aceptado |
+| No merge automático por email | Previene *account takeover*. Vinculación explícita (`/auth/connect`). | Aceptado |
+| Imports al inicio del módulo | Grafo de dependencias visible; `models ← core ← api` no tiene ciclos. | Aceptado |
+| `service.py` importa `google_service` como módulo | Los tests parchean `src.api.auth.google_service.<fn>`; ligar la función rompe el mock. | Aceptado |
 
 ---
 
 ## 5. Pendientes
 
-- [ ] GitHub y Apple (stubs; replicar el patrón de Google).
+- [ ] GitHub y Apple (replicar el patrón de Google; sin stub en backend).
 - [ ] `/auth/connect` + `/auth/unlink` (unificar cuentas federadas).
 - [ ] Verificación de email (`email_verified` real).
-- [x] `verify_api_key`: conectado a nivel de router (`secrets.compare_digest`); toda la API exige `X-API-Key`.
-- [ ] MFA/2FA (TOTP + códigos de recuperación).
-- [ ] Cambio de correo/contraseña, "olvidé contraseña", brute-force.
-- [x] Tests de integración (BD real): 50 tests, rollback por test.
+- [ ] MFA/2FA (TOTP + recuperación): tablas creadas, falta la lógica.
+- [ ] Cambio de correo/contraseña y flujo "olvidé contraseña".
 - [ ] Alertas de seguridad (hoy solo logs a stdout).
+- [ ] El service consulta entidades ORM directamente; la skill `fastapi` §4.2 lo prohíbe → mover al repository.
 
 ---
 
 ## 6. Reglas del proyecto (baseline)
 
-- Idioma: español neutro, sin voseo.
-- Seguridad primero: nunca guardar secretos en BD ni en código.
-- No sobreingeniería: solo lo necesario para el requisito actual.
-- Evidencia: no afirmar comportamientos sin verificar.
+- Español neutro, sin voseo. Seguridad primero: nada de secretos en BD ni en código.
+- No sobreingeniería: solo lo necesario. Evidencia: no afirmar comportamientos sin verificar.
 - El usuario ejecuta git commit; el agente solo propone mensajes.
 
 ---
 
 ## 7. Notas
 
-- Los proyectos originales (`biblioteca-wallmapu-python` y `game_guides_python`) **no fueron modificados**.
-- Antes de ejecutar `schema_auth.sql`, asegurate de tener tu **GOOGLE_CLIENT_ID** real en `.env`. El `client_id` ya no va en la BD.
+- Los proyectos originales (`biblioteca-wallmapu-python`, `game_guides_python`) **no fueron modificados**.
+- El `client_id` ya no va en la BD: vive en `.env` y debe coincidir con el del frontend.
 - Compatible con PostgreSQL.
