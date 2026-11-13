@@ -119,6 +119,14 @@ pip install slowapi
 pip install pytest pytest-asyncio
 ```
 
+### 4.8 Guarda e Instala dependencias
+```sh
+pip freeze > requirements.txt
+```
+```sh
+pip install -r requirements.txt
+```
+
 ```bash
 # 5. Configurar variables de entorno
 cp .env.demo .env
