@@ -191,8 +191,9 @@ class AuthService:
         # (el usuario legítimo ya lo rotó). Se revoca toda la familia de
         # sesiones del usuario para neutralizar también al atacante.
         if session.is_revoked:
-            await repo.revoke_all_for_user(session.user_id)
-            logger.warning("Reuso de refresh token detectado — user_id=%s, sesiones revocadas", session.user_id)
+            user_id = session.user_id
+            await repo.revoke_all_for_user(user_id)
+            logger.warning("Reuso de refresh token detectado — user_id=%s, sesiones revocadas", user_id)
             raise UnauthorizedError("Refresh token reuse detected; sessions revoked")
 
         now = datetime.now(timezone.utc)
@@ -211,14 +212,20 @@ class AuthService:
         if not user or not user.can_authenticate():
             raise ForbiddenError("User not found or disabled")
 
+        # Capturar antes del commit de revoke_if_active (expire_on_commit=True
+        # expiraría el objeto y un acceso posterior lanzaría MissingGreenlet).
+        user_id = user.id
+        expires_at = session.expires_at
+
         # Rotación atómica: revoca el token usado solo si seguía activo. Si otra
         # petición concurrente ya lo revocó, se trata como reuso (no se emite par).
         if not await repo.revoke_if_active(session.id):
-            await repo.revoke_all_for_user(session.user_id)
-            logger.warning("Reuso concurrente de refresh token — user_id=%s", session.user_id)
+            user_id = session.user_id
+            await repo.revoke_all_for_user(user_id)
+            logger.warning("Reuso concurrente de refresh token — user_id=%s", user_id)
             raise UnauthorizedError("Refresh token reuse detected; sessions revoked")
 
-        return await self._issue_tokens(user.id, expires_at=session.expires_at)
+        return await self._issue_tokens(user_id, expires_at=expires_at)
 
     async def logout(self, user_id: str) -> dict:
         """Revoca todas las sesiones activas del usuario."""

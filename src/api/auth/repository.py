@@ -192,7 +192,7 @@ class UserSessionRepository:
     async def revoke(self, session: "UserSession") -> None:
         """Revoca la sesión."""
         session.is_revoked = True
-        await self.db.flush()
+        await self.db.commit()
 
     async def revoke_if_active(self, session_id: uuid.UUID) -> bool:
         """Revoca la sesión solo si seguía activa (revocación atómica).
@@ -205,7 +205,7 @@ class UserSessionRepository:
             .where(UserSession.id == session_id, UserSession.is_revoked == False)  # noqa: E712
             .values(is_revoked=True)
         )
-        await self.db.flush()
+        await self.db.commit()
         return result.rowcount == 1
 
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
@@ -215,7 +215,7 @@ class UserSessionRepository:
         )
         for session in result.scalars().all():
             session.is_revoked = True
-        await self.db.flush()
+        await self.db.commit()
 
     async def soft_delete(self, session: "UserSession") -> "UserSession":
         """Soft delete session (revoke)."""
