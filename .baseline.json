@@ -1,42 +1,42 @@
 {
     "schemaVersion":  1,
-    "baselineVersion":  "0.2.2",
+    "baselineVersion":  "0.4.0",
     "mode":  "local",
-    "installedAt":  "2026-11-01T21:22:50.2413221-03:00",
+    "installedAt":  "2026-11-13T00:23:49.8790323-03:00",
     "skills":  [
+                   "memoria",
                    "fastapi",
-                   "sql",
-                   "memoria"
+                   "sql"
                ],
     "targets":  [
-                    "cline"
+                    "none"
                 ],
     "targetFileCreated":  false,
     "targetPermissionsAdded":  false,
     "targetFiles":  [
-                        ".clinerules/agent-baseline.md"
+
                     ],
     "files":  {
-                  ".baseline/AGENTS.md":  "9E07AD1820DC2DCE57A1B88108D78CB830D573BA749D38D047C9FA987ED98325",
-                  ".baseline/session.md":  "30C3BFB44549FCFAC1EEBC835BC20E4797972B19439C62EDE19C86C4298D4211",
-                  ".baseline/skills/fastapi/references/auth.md":  "0D5111DE94BC4B0D676615CED2FD92ED92BBC6AA930930FC4572D5D073236D83",
+                  ".baseline/AGENTS.md":  "CA31CD3AB92865218188C9707F62D4D7AA624B200B949E62D61A8DF9F791EBE6",
+                  ".baseline/session.md":  "1375F6E3A8B819573FBE19E429E206D3863B1165B7B8E70DC9FBDC194963F123",
+                  ".baseline/skills/fastapi/references/auth.md":  "3C2DE6BB559AF7AFD41A6DD79A57E8512CCDB4829B0A8944F24244560E23018F",
                   ".baseline/skills/fastapi/references/configuracion-logging.md":  "541EF8410151262FBA5E90B7C311DA05AFE9148D49A3607499C71083982000F1",
                   ".baseline/skills/fastapi/references/dtos.md":  "4710EF3E2FF422ADBD4C98EF0165B147CBCCE31E84A2249C6EB5B554EBD8E2EC",
                   ".baseline/skills/fastapi/references/ejemplo-crud.md":  "47524CFF6AF5807C93F7E51BAEDFF7C59575AB070A15D1A773A517BF6B9109CC",
                   ".baseline/skills/fastapi/references/ejemplo-referencia.md":  "AFEA19BD080CE4F5F1211E78F8DBAEC079A6FC13ECA5F05921C1C7854FC229FC",
                   ".baseline/skills/fastapi/references/email.md":  "45A551C93E4C1D238A47434DE07B1E0C261CC571BA1B20935F96E9246C16E743",
                   ".baseline/skills/fastapi/references/errores-rfc9457.md":  "4904E63A1FE1E5CE215022BB204B47D6B69F104E08378B9C630D4DDFE3E13833",
-                  ".baseline/skills/fastapi/references/modelos.md":  "E432867B55CB667520E80BA5426FB6EF594B30824A713AC8B10D94DCEAC8AB0A",
+                  ".baseline/skills/fastapi/references/modelos.md":  "3ADA4476CC106942183704150C7EC5D2B4DA6880D8CFBA89B3AEF10066A7C63C",
                   ".baseline/skills/fastapi/references/rate-limiting.md":  "C56CFD442ED9E40D2B8F49822583AC847328A620CCECD416A86EA2D0605542BC",
-                  ".baseline/skills/fastapi/references/tests.md":  "3E8AFA9341EDE33C8756A00992E444A6C812FFA6D8713FB0329B2CEBBC88EDF0",
+                  ".baseline/skills/fastapi/references/tests.md":  "3DC6FA0BFC5C69FBB69D5078E6B31BA5ABD1AC721D0277DC9774CBD2F4E32F6C",
                   ".baseline/skills/fastapi/references/uploads.md":  "E4A408E0BBC35EA77766DA822C990A3148EFA91C1E387D753070D26653AF0C74",
-                  ".baseline/skills/fastapi/SKILL.md":  "28E4395136FA8C714E25BA3DB5C0B372B6E76D78E31E1F3F6A0546155A5F63D6",
+                  ".baseline/skills/fastapi/SKILL.md":  "49E82AAB75B5E85C7C2ED329D7A8FAEE245BF466845D62AA716C87A7753988C1",
                   ".baseline/skills/gitkeep":  "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-                  ".baseline/skills/memoria/SKILL.md":  "A2525491C32FC1F5CAF24444C3DDBFC02FD8843D2AA493624A9CEC13811A71BB",
+                  ".baseline/skills/memoria/SKILL.md":  "929E9B06B577A7CF71021C0EED501EBF35627BAE11DDB5E9A9EE946FF8D4D1D4",
                   ".baseline/skills/SKILL.md":  "5EA101619FFE653623B5FA63949F2F5EF737B04966AFD72591BC274615447E8F",
                   ".baseline/skills/sql/references/postgresql.md":  "05C3AE56E96C2EA15A34A8F4EEE531627D7FE8F95253BEC7DD5339D0007E3EF1",
                   ".baseline/skills/sql/references/sqlserver.md":  "3449E00C46571D958871EC60CBAE4D1AEE2D026F8BCA3B36A249BF7B87826629",
                   ".baseline/skills/sql/SKILL.md":  "78245EDC0917605E7A0D95402167631E994DD6A44BF181968EE7A26DDBB71ABB",
-                  ".baseline/VERSION":  "998F6B887ED7A6EF44E84210D0237B715BED42EA7254F48DC418AFEC0A484103"
+                  ".baseline/VERSION":  "CD78534ED15AD46912B71339D1417D0D043D8309C2B94415F3ED1B9D1FDFAED0"
               }
 }

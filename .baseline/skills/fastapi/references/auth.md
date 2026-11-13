@@ -108,13 +108,32 @@ def get_current_user(required_roles: Optional[list[str]] = None):
 
 ### 8.2 `src/core/security.py` — Auth + API Key (BFF → API)
 
-**`verify_api_key`** vive en `security.py` (es seguridad, no una "dependency transversal"). Se aplica a **nivel de router** para que ninguna ruta nueva quede sin proteger:
+**`verify_api_key`** vive en `security.py` (es seguridad, no una "dependency transversal"):
+
+```python
+# src/core/security.py
+import logging
+import secrets
+
+from fastapi import Header
+
+from src.core.config import settings
+from src.core.exceptions import InvalidApiKeyError
+
+logger = logging.getLogger("auth-unificado")
+
+async def verify_api_key(x_api_key: str | None = Header(None, alias="X-API-Key")) -> bool:
+    if not x_api_key or not secrets.compare_digest(x_api_key, settings.API_KEY):
+        logger.warning("API Key inválida recibida")
+        raise InvalidApiKeyError()
+    return True
+```
+
+Se aplica a **nivel de router** para que ninguna ruta nueva quede sin proteger:
 
 ```python
 # routes.py
 from src.core.security import verify_api_key
-
-api_key_required = Depends(verify_api_key)
 
 router = APIRouter(
     prefix="/auth",
@@ -123,9 +142,19 @@ router = APIRouter(
 )
 ```
 
-- **Comparación en tiempo constante**: `secrets.compare_digest(x_api_key, settings.API_KEY)` (evita timing attacks).
-- **Cabecera opcional en la firma**: `Header(None, alias="X-API-Key")` para que el fallo lo decida la función (401 `invalid-api-key`), no la validación de FastAPI (422, que además expone el nombre del header en el schema público).
-- **`API_KEY` es requerida**: `API_KEY: str = _required("API_KEY")` — el arranque falla si falta (un default vacío permitiría que una clave vacía pasara).
+`dependencies.py` queda como fachada para que los imports existentes sigan funcionando:
+
+```python
+# src/core/dependencies.py
+from src.core.security import get_current_user, verify_api_key
+
+require_admin = get_current_user(required_roles=["admin"])
+require_user = get_current_user()
+```
+
+- **Comparación en tiempo constante**: `if not x_api_key or not secrets.compare_digest(x_api_key, settings.API_KEY): raise InvalidApiKeyError()` (evita timing attacks y convierte la ausencia de cabecera en 401, no en 500).
+- **Cabecera opcional en la firma**: `x_api_key: str | None = Header(None, alias="X-API-Key")`; el guardia anterior decide el fallo (401 `invalid-api-key`), no la validación de FastAPI (422, que además expone el nombre del header en el schema público).
+- **`API_KEY` es requerida**: la variable no puede tener default (Pydantic: `API_KEY: str` sin default; implementación propia: un `_required("API_KEY")` que falle al arrancar). Un default vacío permitiría que una clave vacía pasara.
 - **Rutas públicas por diseño**: `/health`, `/docs`, `/openapi.json` quedan fuera del router de auth. Si se necesitan endpoints públicos dentro de `/auth` (ej. login), se sacan a un sub-router separado.
 - **Logging de seguridad**: `logger.warning("API Key inválida recibida")` en cada intento fallido.
 

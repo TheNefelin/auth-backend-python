@@ -43,7 +43,7 @@ Aplica a la memoria de un proyecto. El `DEVELOPMENT.md` del catálogo —inventa
 
 ## Procedimiento
 
-1. Mide y anota caracteres y líneas: es la columna "antes".
+1. Mide y anota caracteres y líneas: es la columna "antes". **Estima el largo del resultado antes de escribir**; si el archivo va a superar el tope duro, recorta en la misma escritura (una lectura + una escritura, sin segunda pasada).
 2. Lee `DEVELOPMENT.md` **una vez** y aplica la checklist.
 3. Verifica las rutas citadas en lote, sin abrir cada archivo.
 4. Escribe el resultado **una vez**.

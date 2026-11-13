@@ -65,6 +65,7 @@ Antes de tocar un área, lee su memoria: el mapa de `DEVELOPMENT.md` (área → 
 - Si la memoria contradice el código, señálalo; no asumas que está al día ni la reemplaces con una lectura completa.
 - **Workspace multi-proyecto**: la raíz no es un proyecto. Si abres el agente en la raíz y la tarea pertenece a `frontend/`, lee primero `frontend/AGENTS.md` y `frontend/DEVELOPMENT.md`; el stack del subproyecto manda sobre el de la raíz. `install`, `build` y `test` se ejecutan dentro de cada proyecto, nunca en la raíz.
 - No crees `SKILL.md` por iniciativa propia: propón y espera.
+- **No edites `.baseline/skills/` en sitio**: el manifiesto (`.baseline.json`) hashea cada archivo; una edición local rompe `-Doctor` y el próximo `-Update` la pisa. El cambio va al catálogo y se reinstala.
 
 ## 7. Flujo
 
@@ -102,6 +103,8 @@ Solo lo necesario para el pedido. Sin refactors, renombres, dependencias ni conf
 ## 11. Memoria
 
 Al cerrar una tarea autorizada, registra en `DEVELOPMENT.md` solo las decisiones que sobrevivan a la sesión, con estado (`Aceptado`/`Propuesto`/`Pendiente`). Reemplaza lo caducado; no acumules un diario.
+
+**Cuándo no reescribir**: durante la tarea, no actualices `DEVELOPMENT.md` ni `.baseline/session.md` en cada turno. Actualiza solo al cerrar la tarea autorizada o cuando cambie el mapa, el estado operativo o una decisión vigente; reescrituras intermedias solo gastan contexto.
 
 **Presupuesto**: blando 4.500 caracteres, duro 6.000. Se mide con `(Get-Content DEVELOPMENT.md -Raw).Length`. Sobre el duro no se agrega nada sin recortar antes.
 

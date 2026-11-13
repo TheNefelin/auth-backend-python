@@ -137,7 +137,7 @@ project/
 ### 4.2 Service (orquesta y aplica reglas de negocio)
 - Llama al repository, valida, lanza errores de negocio, mapea a DTOs con `model_validate`.
 - **El service decide el error**, el repository solo devuelve datos (`None` si no existe).
-- Los `await db.commit()` viven en el repository (capa de datos), nunca en el service. Si una operación necesita varios cambios atómicos, el repository expone un único `delete_by_*`/`remove_*` que los ejecuta y commitea juntos.
+- Los `await db.commit()` viven en la capa de datos, nunca en el service. Preferible: **una transacción por request** — el repository hace `flush()` y `get_db()` hace `commit()`/`rollback()` al cerrar la request, así varios repositorios del mismo request son atómicos. Si el commit vive en cada método del repository, dos llamadas dejan datos parciales. (Detalle: `references/tests.md`.)
 - Helpers de validación de FK se exponen para otros features: `ensure_product_exists(db, id)`.
 - **Regla cross-feature**: si una feature necesita datos de otra, se importa **su service** (`from src.api.categories import service as categories_service` → `categories_service.exists_by_id(...)`), nunca su repository directamente.
 - **Regla de capa de datos**: el service **NUNCA importa `src.models.models`** (entidades ORM). Solo el repository toca entidades. El service tipa y retorna únicamente DTOs (`dtos.*`); si necesita la entidad de su propia feature, el repository se la devuelve y el service la mapea. Si necesita datos de otra feature, usa su service (que devuelve DTOs).

@@ -16,3 +16,9 @@ __pycache__/
 
 # agent-baseline: respaldos de reinstalacion
 .baseline-backup/
+
+# agent-baseline: adaptadores de descubrimiento (generados)
+.agents/skills/
+.clinerules/
+.claude/skills/
+.kilocode/

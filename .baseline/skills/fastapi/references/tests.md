@@ -162,3 +162,32 @@ async def test_create_product_duplicate_name(client, db):
 ```
 
 **Flujo de trabajo**: `pytest` corre contra `TEST_DATABASE_URL` (BD dedicada `*_test`, esquema reseteado al inicio); **nunca** toca la BD de desarrollo/producción, y el rol de tests **no debe tener permisos de DDL/DROP** sobre ella. Para repoblar la BD de desarrollo (p. ej. tras un seed manual) usa `repopulate_db.py --force`; el seed debe ser idempotente (FKs por natural keys, no IDs en duro).
+
+---
+
+### Mocks y binding de imports (gotcha)
+
+Normalizar imports (subir a nivel de módulo las importaciones que estaban dentro de funciones) es buena higiene, pero **rompe los mocks que parchean el módulo fuente**:
+
+```python
+# service.py
+from .google_service import verify_google_token   # liga el objeto al namespace de service
+
+# tests
+with patch("src.api.auth.google_service.verify_google_token", ...):  # NO intercepta:
+    ...  # service ya tiene su propia referencia al objeto original
+```
+
+El test no falla con error: ejecuta el código real (p. ej. llama a Google) y devuelve el resultado de verdad, lo que suele manifestarse como un 401 o un timeout. **La forma correcta** es importar el módulo y resolver el atributo en tiempo de llamada:
+
+```python
+from . import google_service
+
+info = await google_service.verify_google_token(token)  # el patch sí intercepta
+```
+
+Misma trampa con `patch("src.core.security.hash_refresh_token")` si el repository importó la función: importa el módulo.
+
+### Gotcha de `pytest -q`
+
+`pytest.ini` del proyecto suele traer `addopts = -m "not live"` (o `-q`). Pasar `-q` otra vez lo convierte en `-qq` y **oculta la línea final "N passed"**, que es la que se reporta. Corre `python -m pytest` a secas para verla.

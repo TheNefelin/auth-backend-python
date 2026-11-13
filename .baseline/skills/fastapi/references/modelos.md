@@ -34,3 +34,26 @@ class Product(Base):
 
   category: Mapped["Category"] = relationship(back_populates="products")
 ```
+
+---
+
+### Una sola Base declarativa
+
+La `Base` vive en `src/core/database.py` (con la convención de nombres) y **`src/models/models.py` la importa**:
+
+```python
+from src.core.database import Base
+```
+
+**No declares otra `Base`** en `models/`, ni otra en `core/database.py` distinta a la que usan los modelos. Dos bases = dos registries: `Base.metadata.create_all()` sobre la equivocada no crea las tablas, y los tests que usan `Base.metadata` quedan desalineados. Si quieres convención de nombres, ponla en `core/database.Base`, no en un segundo declarativo.
+
+### Consolidar a un único `models.py` sin tocar los call sites
+
+Si migras de un modelo por archivo a un único `models.py` (recomendado: evita imports circulares), deja `src/models/__init__.py` como fachada que reexporta:
+
+```python
+# src/models/__init__.py
+from .models import User, UserRole, UserStatus, AuthProvider, UserIdentity, UserSession, MFA, RecoveryCode
+```
+
+Los call sites (`from src.models import User`) **no cambian**, y la fachada importa todos los modelos, lo que los registra en `Base.metadata`. Sin la fachada, `from src.models import User` deja de funcionar y hay que tocar cada archivo.
