@@ -10,6 +10,8 @@ __pycache__/
 .env.*
 # .env.demo es la plantilla con placeholders: esa si se versiona
 !.env.demo
+# .env.example es la plantilla con placeholders: esa si se versiona
+!.env.example
 
 # Pytest
 .pytest_cache/

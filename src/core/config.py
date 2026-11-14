@@ -62,7 +62,7 @@ class Settings:
 	JWT_REFRESH_IDLE_MINUTES: int = int(os.getenv("JWT_REFRESH_IDLE_MINUTES", "30"))
 
 	# Google OAuth ("" = no configurado)
-	GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+	GOOGLE_CLIENT_ID: str = _required("GOOGLE_CLIENT_ID")
 	GOOGLE_TOKEN_INFO_URL: str = os.getenv("GOOGLE_TOKEN_INFO_URL", "https://oauth2.googleapis.com/tokeninfo")
 	GOOGLE_USERINFO_URL: str = os.getenv("GOOGLE_USERINFO_URL", "https://www.googleapis.com/oauth2/v3/userinfo")
 
