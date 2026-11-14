@@ -89,9 +89,11 @@ py -m venv .venv
 pip install fastapi uvicorn pydantic
 ```
 
-### 4.2 Base de datos (SQLAlchemy + asyncpg + dotenv)
+### 4.2 Base de datos (SQLAlchemy + asyncpg + dotenv + greenlet)
 ```bash
-pip install sqlalchemy asyncpg python-dotenv
+pip install sqlalchemy[asyncio] asyncpg python-dotenv
+# `greenlet` es requerido por `sqlalchemy.ext.asyncio` (bridge sync/async).
+# `sqlalchemy[asyncio]` lo instala automáticamente como dependencia transitiva.
 ```
 
 ### 4.3 Seguridad (JWT + passwords)
