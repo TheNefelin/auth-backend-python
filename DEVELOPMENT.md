@@ -74,13 +74,33 @@ auth-backend-python/
 
 ## 5. Pendientes
 
-- [ ] GitHub y Apple (replicar el patrón de Google; sin stub en backend).
-- [ ] `/auth/connect` + `/auth/unlink` (unificar cuentas federadas).
-- [ ] Verificación de email (`email_verified` real).
-- [ ] MFA/2FA (TOTP + recuperación): tablas creadas, falta la lógica.
+### Funcionalidad auth (pendiente de implementar)
+- [ ] GitHub y Apple: crear `verify_github_token` / `verify_apple_token` y rutas `/auth/github`, `/auth/apple` (replicar patrón Google).
+- [ ] `/auth/connect` + `/auth/unlink/{provider}` (unificar cuentas federadas).
+- [ ] Verificación de email (`email_verified` real, no hardcodeado en Google login).
+- [ ] MFA/2FA (TOTP + códigos de recuperación): tablas creadas, falta la lógica TOTP.
 - [ ] Cambio de correo/contraseña y flujo "olvidé contraseña".
-- [ ] Alertas de seguridad (hoy solo logs a stdout).
-- [ ] El service consulta entidades ORM directamente; la skill `fastapi` §4.2 lo prohíbe → mover al repository.
+- [ ] Alertas de seguridad (hoy solo logs a stdout; integrar con servicio de alertas).
+
+### Higiene / deuda técnica (para ser 10/10)
+- [ ] **Refactor service → repository**: `service.py` consulta ORM directamente (`select(UserIdentity)`, `db.get(User)`). Mover esas queries a `repository.py` (skill `fastapi` §4.2).
+- [ ] **`core/dependencies.py`**: crear fachada con `get_current_user`, `require_user`, `require_admin`, `verify_api_key` (catálogo §3 template). Hoy viven en `core/security.py`.
+- [ ] **Config con pydantic-settings**: migrar de python-dotenv (clase propia) a `pydantic_settings.BaseSettings` (catálogo §9). Requiere añadir `pydantic-settings` a requirements.
+- [ ] **Lint**: instalar `ruff` (o `flake8`) y añadir `ruff check src/` al flujo de verificación.
+- [ ] **Tests E2E del flujo completo**: register → login → refresh → logout (hoy solo unitarios + integración por endpoint).
+- [ ] **`core/database.py` Base**: la `Base` con naming_convention ya está en `core/database.py` (unificada). Verificar que no se declare otra en `models/`.
+
+### Listo para CRUD
+- [x] Feature-based (`routes → service → repository`).
+- [x] Models consolidados en `models/models.py` (un solo archivo).
+- [x] Base unificada en `core/database.py`.
+- [x] API Key a nivel de router (`X-API-Key`).
+- [x] Errores RFC 9457 (`fastapi-problem`).
+- [x] Paginación unificada (`PaginationRequest`/`PaginationResponse[T]`).
+- [x] Rate limiting por identidad (`slowapi`).
+- [x] Tests con BD real aislada (rollback por test).
+- [x] Logging JSON con `request_id`.
+- [ ] **Nuevo feature CRUD**: crear `src/api/{feature}/` con `routes.py`, `service.py`, `repository.py` + DTOs en `schemas/dtos.py` + modelo en `models/models.py`. Sin cascadas, sin `HTTPException` en rutas, commit solo en repository.
 
 ---
 

@@ -1,20 +1,20 @@
-# Sesión — backend-python
+# Sesión — auth-backend-python
 
 > Checkpoint local (fuera de Git): el punto de continuación de la tarea en curso, no un diario.
 > Mantenlo corto (≤ ~40 líneas) y reemplaza su contenido en vez de acumular. Sin transcripciones ni secretos.
 
 ## Tarea activa
 
-MVP completo y verificado. Última tarea: consolidación de los modelos en `src/models/models.py` (un solo archivo, patrón `schemas/dtos.py`).
+MVP completo y verificado. Última tarea: unificar la Base declarativa en `core/database.py` y sacar `TEST_DATABASE_URL` de la config de la app.
 
 ## Último avance comprobado
 
-- **Modelos consolidados**: los 8 archivos (`base.py`, `user.py`, `user_role.py`, `user_status.py`, `auth_provider.py`, `user_identity.py`, `user_session.py`, `mfa.py`) → un único `src/models/models.py`. `src/models/__init__.py` queda como fachada que reexporta, así que **ningún call site cambió** (`from src.models import User` sigue igual).
-- **Bug corregido de paso**: `user.py` usaba `datetime` sin importarlo → `typing.get_type_hints(User)` lanzaba `NameError`. Ahora resuelve bien.
-- **Imports normalizados** (tarea anterior): `service.py`, `repository.py`, `tests/conftest.py`; cero imports dentro de funciones. `service.py` importa `google_service` como módulo para que los mocks sigan interceptando.
-- **Auth**: Google login, `/auth/login`, `/auth/register`, `/auth/me`, `/auth/refresh`, `/auth/logout`.
-- **Seguridad**: `verify_api_key` a nivel de router (toda la API exige `X-API-Key`); `/health` y `/docs` sin Key. Logging de eventos de seguridad.
-- **Verificado**: `pytest` **50/50** (exit 0), `from src.main import app` importa (6 rutas), 8 tablas en `Base.metadata` con las columnas esperadas.
+- **Base unificada**: `core/database.py` ahora tiene la `Base` con `naming_convention`; `models/models.py` la importa. Eliminada la `Base` orphan de `core/database.py` (sin convención) y la duplicada de `models/models.py`.
+- **Config limpia**: `TEST_DATABASE_URL` eliminado de `Settings` (es concern de tests); `conftest.py` ahora usa `os.getenv("TEST_DATABASE_URL", "")`. `load_dotenv(override=True)` para que `.env` sobrescriba variables stale del sistema (causa del "API Key inválida").
+- **Reuse-detection fix**: `revoke`/`revoke_if_active`/`revoke_all_for_user` hacen `commit()` en vez de `flush()` (la revocación persiste aunque la request falle). Captura de `user_id`/`expires_at` antes del commit (evita `MissingGreenlet`).
+- **Imports normalizados**: cero imports dentro de funciones; alias `UI`/`US`/`UserModel` eliminados.
+- **Modelos consolidados**: 8 archivos → un único `models/models.py` + fachada `__init__.py`.
+- **Verificado**: `pytest` **50/50** (exit 0), `from src.main import app` importa (6 rutas), 8 tablas en `Base.metadata`.
 
 ## Pendientes
 
@@ -25,7 +25,7 @@ MVP completo y verificado. Última tarea: consolidación de los modelos en `src/
 - Cambio de correo/contraseña y flujo "olvidé contraseña".
 - Alertas de seguridad (hoy solo logs a stdout).
 - El service consulta entidades ORM directamente → mover al repository (skill `fastapi` §4.2).
-- Endurecer `style-src` en la CSP.
+- Lint (ruff) y tests E2E del flujo completo.
 
 ## Nota
 
