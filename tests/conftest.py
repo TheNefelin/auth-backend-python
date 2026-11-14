@@ -21,6 +21,8 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+import os
+
 from src.core.config import settings
 from src.core.database import get_db
 from src.core.limiter import limiter
@@ -33,7 +35,7 @@ limiter.enabled = False
 SCHEMA_FILE = Path(__file__).resolve().parents[1] / "schema_auth.sql"
 
 requires_test_db = pytest.mark.skipif(
-    not settings.TEST_DATABASE_URL,
+    not os.getenv("TEST_DATABASE_URL"),
     reason="TEST_DATABASE_URL no configurada; se omiten los tests de integración",
 )
 
@@ -50,7 +52,7 @@ async def test_engine():
 
     Aplica el esquema de forma idempotente (`CREATE TABLE IF NOT EXISTS`).
     """
-    engine = create_async_engine(settings.TEST_DATABASE_URL)
+    engine = create_async_engine(os.getenv("TEST_DATABASE_URL", ""))
     async with engine.begin() as conn:
         # utf-8-sig descarta el BOM si el .sql lo trae.
         sql = SCHEMA_FILE.read_text(encoding="utf-8-sig")

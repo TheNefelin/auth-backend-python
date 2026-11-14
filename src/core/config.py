@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 # Carga el .env de la raíz del backend (búsqueda ascendente desde este archivo).
 # Las variables ya presentes en el entorno tienen prioridad (override=False).
-load_dotenv()
+load_dotenv(override=True)
 
 
 def _required(name: str) -> str:
@@ -53,7 +53,6 @@ class Settings:
 
 	# Database
 	DATABASE_URL: str = _required("DATABASE_URL")
-
 	# JWT
 	JWT_SECRET_KEY: str = _required("JWT_SECRET_KEY")
 	JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")

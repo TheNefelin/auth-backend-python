@@ -17,31 +17,16 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    MetaData,
     String,
     Text,
     UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
-# Convención de nombres para índices y constraints: evita conflictos y hace
-# las migraciones predecibles.
-naming_convention = {
-    "ix": "ix_%(column_0_label)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(referred_table_name)s_%(column_0_name)s",
-    "pk": "pk_%(table_name)s",
-}
-
-
-class Base(DeclarativeBase):
-    """Base declarativa con convención de nombres (SQLAlchemy 2.0)."""
-
-    metadata = MetaData(naming_convention=naming_convention)
+from ..core.database import Base
 
 
 class User(Base):
